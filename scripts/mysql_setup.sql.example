@@ -1,0 +1,27 @@
+-- PharmaQ Sentinel local MySQL setup example.
+-- Replace placeholder passwords before running locally.
+-- Do not commit real passwords.
+
+CREATE DATABASE IF NOT EXISTS pharmaq_sentinel
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_0900_ai_ci;
+
+CREATE DATABASE IF NOT EXISTS pharmaq_sentinel_test
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_0900_ai_ci;
+
+CREATE USER IF NOT EXISTS 'pharmaq_user'@'localhost'
+  IDENTIFIED BY 'CHANGE_THIS_LOCAL_PASSWORD';
+
+CREATE USER IF NOT EXISTS 'pharmaq_test_user'@'localhost'
+  IDENTIFIED BY 'CHANGE_THIS_TEST_PASSWORD';
+
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES
+  ON pharmaq_sentinel.*
+  TO 'pharmaq_user'@'localhost';
+
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES, DROP
+  ON pharmaq_sentinel_test.*
+  TO 'pharmaq_test_user'@'localhost';
+
+FLUSH PRIVILEGES;
