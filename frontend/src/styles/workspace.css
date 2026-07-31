@@ -10,6 +10,18 @@
   margin: 0 auto;
 }
 
+.demo-ai-badge {
+  width: fit-content;
+  margin: 0 auto var(--spacing-3);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-soft);
+  color: var(--color-text-primary);
+  padding: 0.24rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
 .complaint-workspace {
   display: grid;
   grid-template-columns: minmax(0, 59fr) minmax(360px, 41fr);
@@ -1079,6 +1091,203 @@
   padding-left: 1.1rem;
 }
 
+.duplicate-summary-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-4);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-soft);
+  padding: var(--spacing-4);
+}
+
+.duplicate-summary-alert div {
+  display: grid;
+  gap: var(--spacing-1);
+}
+
+.duplicate-summary-alert strong {
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+}
+
+.duplicate-summary-alert span {
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+}
+
+.war-room-panel,
+.investigation-support-panel,
+.war-room-results {
+  display: grid;
+  gap: var(--spacing-4);
+}
+
+.war-room-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-4);
+}
+
+.war-room-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  box-shadow: var(--shadow-card);
+  padding: var(--spacing-4);
+}
+
+.war-room-card header {
+  display: flex;
+  gap: var(--spacing-3);
+  align-items: flex-start;
+  margin-bottom: var(--spacing-3);
+}
+
+.war-room-card h4 {
+  margin: 0 0 var(--spacing-2);
+  font-size: 0.95rem;
+  color: var(--color-text-primary);
+}
+
+.war-room-card header h4 {
+  margin-bottom: 0.15rem;
+}
+
+.war-room-card header span,
+.war-room-card p,
+.war-room-card li span,
+.previous-runs-selector {
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+}
+
+.war-room-card ul,
+.agent-progress-timeline {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.war-room-card li {
+  margin-bottom: var(--spacing-2);
+}
+
+.agent-progress-timeline {
+  display: grid;
+  gap: var(--spacing-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-muted-bg);
+  padding: var(--spacing-4) var(--spacing-4) var(--spacing-4) 2rem;
+}
+
+.agent-progress-timeline li strong {
+  display: block;
+  text-transform: capitalize;
+  font-size: 0.82rem;
+  color: var(--color-text-primary);
+}
+
+.agent-progress-timeline li span {
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+}
+
+.evidence-reference-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-3);
+}
+
+.evidence-reference-link {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-primary-purple);
+  font-size: 0.75rem;
+  padding: 0.2rem 0.45rem;
+}
+
+.previous-runs-selector {
+  display: grid;
+  gap: var(--spacing-1);
+}
+
+.previous-runs-selector select {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.6rem;
+  font: inherit;
+}
+
+.duplicate-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.duplicate-table th,
+.duplicate-table td {
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--spacing-2);
+  text-align: left;
+}
+
+.capa-bucket {
+  display: grid;
+  gap: var(--spacing-1);
+  margin-bottom: var(--spacing-3);
+}
+
+.capa-bucket strong {
+  color: var(--color-text-primary);
+  text-transform: capitalize;
+}
+
+.inspection-brief-actions {
+  display: grid;
+  gap: var(--spacing-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  box-shadow: var(--shadow-card);
+  padding: var(--spacing-4);
+}
+
+.inspection-brief-actions span {
+  color: var(--color-primary-purple);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.inspection-brief-actions h4 {
+  margin: var(--spacing-1) 0;
+  color: var(--color-text-primary);
+  font-size: 1rem;
+}
+
+.inspection-brief-actions p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.84rem;
+}
+
+.inspection-brief-actions__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+}
+
+.inspection-brief-preview-frame {
+  width: 100%;
+  min-height: 72vh;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+}
+
 .quality-signal-card--high {
   border-color: #fecaca;
   background: var(--color-danger-soft);
@@ -1484,8 +1693,14 @@
   }
 
   .batch-impact-metrics,
-  .batch-impact-columns {
+  .batch-impact-columns,
+  .war-room-grid {
     grid-template-columns: 1fr;
+  }
+
+  .duplicate-summary-alert {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .batch-impact-graph {

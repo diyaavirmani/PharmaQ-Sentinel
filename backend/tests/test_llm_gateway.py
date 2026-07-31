@@ -327,6 +327,20 @@ def test_api_key_does_not_appear_in_status_endpoint(monkeypatch: pytest.MonkeyPa
     assert response.status_code == 200
     assert "sk-test-secret" not in response.text
     assert response.json()["model"] == "gpt-test"
+    assert response.json()["demo_ai_mode"] == "live"
+
+
+def test_ai_status_reports_deterministic_demo_mode_without_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    monkeypatch.setenv("OPENAI_MODEL", "")
+    monkeypatch.setenv("DEMO_AI_MODE", "deterministic")
+    get_settings.cache_clear()
+
+    response = TestClient(create_app()).get("/api/v1/ai/status")
+
+    assert response.status_code == 200
+    assert response.json()["demo_ai_mode"] == "deterministic"
+    assert "OPENAI_API_KEY" not in response.text
 
 
 def test_complete_prompts_are_not_logged_by_default(caplog: pytest.LogCaptureFixture) -> None:

@@ -71,7 +71,23 @@ MySQL connection status: connected
 
 If MySQL is unavailable, the FastAPI app still starts and `/health` reports a degraded status.
 
-## 7. Common Errors
+## 7. Migrate And Seed
+
+```powershell
+cd backend
+.\.venv\Scripts\Activate.ps1
+alembic upgrade head
+python -m app.utilities.seed_database
+python -m app.utilities.seed_database
+```
+
+Running the seed command twice should not duplicate records.
+
+## 8. Host Name Consistency
+
+Create MySQL users for the same host used in `.env`. If `DATABASE_URL` uses `localhost`, grant to `'pharmaq_user'@'localhost'`. If it uses `127.0.0.1`, grant to `'pharmaq_user'@'127.0.0.1'`.
+
+## 9. Common Errors
 
 Access denied:
 

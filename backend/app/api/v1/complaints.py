@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import re
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -15,8 +17,19 @@ from app.schemas.complaints import (
 )
 from app.schemas.evidence import TimelineEntryResponse, TimelineListResponse
 from app.services.complaint_save import complaint_timeline
+from app.services.reports import (
+    build_complaint_brief,
+    render_complaint_brief_html,
+    render_complaint_brief_pdf,
+)
+from app.services.reports.complaint_brief_schema import ComplaintBrief
 
 router = APIRouter(prefix="/complaints", tags=["complaints"])
+
+
+def _safe_filename(value: str) -> str:
+    sanitized = re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("._")
+    return sanitized[:120] or "inspection-brief"
 
 
 @router.get("", response_model=ComplaintLedgerListResponse)
@@ -61,6 +74,31 @@ def get_complaint(
     db: Annotated[Session, Depends(get_db)],
 ) -> ComplaintResponse:
     return ComplaintResponse.model_validate(ComplaintRepository(db).get_required(complaint_id))
+
+
+@router.get("/{complaint_id}/inspection-brief", response_model=None)
+def get_inspection_brief(
+    complaint_id: str,
+    db: Annotated[Session, Depends(get_db)],
+    format: Annotated[Literal["json", "html", "pdf"], Query()] = "json",
+) -> ComplaintBrief | HTMLResponse | Response:
+    brief = build_complaint_brief(db, complaint_id=complaint_id)
+    if format == "json":
+        return brief
+    if format == "html":
+        return HTMLResponse(
+            content=render_complaint_brief_html(brief),
+            headers={"Content-Disposition": f'inline; filename="{_safe_filename(brief.document_identifier)}.html"'},
+        )
+    pdf = render_complaint_brief_pdf(brief)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{_safe_filename(brief.document_identifier)}.pdf"',
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.get("/{complaint_id}/versions", response_model=list[ComplaintVersionResponse])

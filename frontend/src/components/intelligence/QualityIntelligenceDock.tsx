@@ -2,6 +2,10 @@ import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { BatchImpactPanel } from "../../features/batchImpact/BatchImpactPanel";
 import type { IntelligenceTab, TimelineEntryResponse } from "../../features/complaint/complaintTypes";
+import { InvestigationSupportPanel } from "../../features/investigationSupport/InvestigationSupportPanel";
+import type { DuplicateAnalysisResult, InvestigationPlaybookResult } from "../../features/investigationSupport/investigationSupportTypes";
+import { QualityWarRoomPanel } from "../../features/qualityWarRoom/QualityWarRoomPanel";
+import { InspectionBriefActions } from "../../features/reports/InspectionBriefActions";
 
 const intelligenceTabs: IntelligenceTab[] = [
   "Batch Intelligence",
@@ -15,8 +19,13 @@ interface QualityIntelligenceDockProps {
   isExpanded: boolean;
   activeTab: IntelligenceTab;
   draftId?: string | null;
+  complaintId?: string | null;
   batchNumber?: string | null;
   timeline?: TimelineEntryResponse[];
+  duplicateAnalysis?: DuplicateAnalysisResult | null;
+  investigationPlaybook?: InvestigationPlaybookResult | null;
+  onDuplicateAnalysisComplete?: (result: DuplicateAnalysisResult) => void;
+  onInvestigationPlaybookComplete?: (result: InvestigationPlaybookResult) => void;
   onExpandedChange: (isExpanded: boolean) => void;
   onActiveTabChange: (tab: IntelligenceTab) => void;
 }
@@ -115,8 +124,13 @@ export function QualityIntelligenceDock({
   isExpanded,
   activeTab,
   draftId = null,
+  complaintId = null,
   batchNumber = null,
   timeline,
+  duplicateAnalysis = null,
+  investigationPlaybook = null,
+  onDuplicateAnalysisComplete,
+  onInvestigationPlaybookComplete,
   onExpandedChange,
   onActiveTabChange
 }: QualityIntelligenceDockProps) {
@@ -144,7 +158,6 @@ export function QualityIntelligenceDock({
               type="button"
               role="tab"
               aria-selected={activeTab === tabLabel}
-              disabled={tabLabel !== "Evidence & Audit" && tabLabel !== "Batch Intelligence"}
               onClick={() => onActiveTabChange(tabLabel)}
             >
               {tabLabel}
@@ -159,7 +172,24 @@ export function QualityIntelligenceDock({
       ) : null}
       {isExpanded && activeTab === "Evidence & Audit" ? (
         <div className="quality-intelligence-dock__panel">
+          <InspectionBriefActions complaintId={complaintId} />
           <InspectorReplay timeline={timeline} />
+        </div>
+      ) : null}
+      {isExpanded && activeTab === "Quality War Room" ? (
+        <div className="quality-intelligence-dock__panel">
+          <QualityWarRoomPanel draftId={draftId} />
+        </div>
+      ) : null}
+      {isExpanded && activeTab === "Investigation Support" ? (
+        <div className="quality-intelligence-dock__panel">
+          <InvestigationSupportPanel
+            draftId={draftId}
+            duplicateAnalysis={duplicateAnalysis}
+            playbook={investigationPlaybook}
+            onDuplicateAnalysisComplete={(result) => onDuplicateAnalysisComplete?.(result)}
+            onPlaybookComplete={(result) => onInvestigationPlaybookComplete?.(result)}
+          />
         </div>
       ) : null}
     </section>

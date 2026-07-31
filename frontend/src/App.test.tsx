@@ -289,6 +289,177 @@ const batchImpactResponse: BatchImpactResponse = {
   limitations: ["Seeded reference data is fictional demonstration data."]
 };
 
+const qualityWarRoomRun = {
+  id: "war-room-run-1",
+  draft_id: "draft-risk",
+  status: "COMPLETE",
+  iteration_count: 1,
+  specialist_outputs_json: {
+    qa: {
+      agent_name: "QA Risk Agent",
+      status: "COMPLETE",
+      concise_findings: ["Draft severity signal is MAJOR."],
+      evidence_ids: ["evidence-product"],
+      hypotheses: ["Potential quality impact should be triaged."],
+      recommended_checks: ["Verify complaint criticality against SOP criteria."],
+      immediate_considerations: ["Preserve samples and source evidence."],
+      open_questions: ["Is a sample available?"],
+      contradictions: [],
+      confidence: "MEDIUM",
+      limitations: ["No authorized decision is made by this run."]
+    }
+  },
+  auditor_output_json: {
+    accepted_findings: ["Draft severity signal is MAJOR."],
+    challenged_findings: [],
+    rejected_claims: [],
+    missing_evidence: [],
+    contradiction_findings: [],
+    specialist_revision_requests: {},
+    compliance_warnings: ["AI output is a draft recommendation only."]
+  },
+  consensus_json: {
+    suggested_severity: "MAJOR",
+    suggested_priority: "HIGH",
+    recommended_routes: ["PRODUCT_QUALITY"],
+    immediate_containment_considerations: ["Preserve samples and source evidence."],
+    investigation_priorities: ["Verify complaint criticality against SOP criteria."],
+    root_cause_hypotheses: ["Potential quality impact should be triaged."],
+    confirmation_tests: ["Compare complaint sample and retain sample."],
+    CAPA_considerations: { containment: ["Consider inventory assessment."] },
+    agent_agreements: ["Draft severity signal is MAJOR."],
+    agent_disagreements: [],
+    rejected_unsupported_claims: [],
+    unresolved_questions: ["Is a sample available?"],
+    evidence_ids: ["evidence-product"],
+    limitations: ["Human QA approval is required."],
+    human_approval_required: true
+  },
+  provider: "deterministic-war-room",
+  model: "quality-war-room-rules-v1",
+  started_at: "2026-07-31T00:00:00Z",
+  completed_at: "2026-07-31T00:00:01Z",
+  error_summary: null,
+  events: [
+    {
+      id: "event-war-room-started",
+      run_id: "war-room-run-1",
+      event_type: "war_room_started",
+      agent_name: null,
+      status: "STARTED",
+      concise_message: "Quality War Room run started.",
+      evidence_ids_json: { evidence_ids: [] },
+      created_at: "2026-07-31T00:00:00Z"
+    }
+  ]
+};
+
+const duplicateAnalysisResponse = {
+  run_id: "duplicate-run-1",
+  draft_id: "draft-risk",
+  candidates: [
+    {
+      candidate_complaint_id: "historical-1",
+      complaint_number: "HC-2026-001",
+      classification: "POSSIBLE_DUPLICATE",
+      total_score: 72,
+      reasons: ["Same product name.", "Same complaint type."],
+      matching_fields: ["product_name", "complaint_type"],
+      contradicting_fields: [],
+      evidence_references: ["historical-1"],
+      date_distance_days: 2,
+      text_similarity: "0.6200",
+      recommended_user_action: "Compare source evidence and decide whether the candidate is a duplicate or related record."
+    }
+  ],
+  recurrence_signals: [
+    {
+      signal_type: "SAME_PRODUCT_DEFECT_TREND",
+      description: "Two historical records share the same product and complaint type.",
+      evidence_references: ["historical-1"],
+      limitation: "Small seeded demo dataset."
+    }
+  ],
+  limitations: ["Deterministic similarity is decision support only."]
+};
+
+const investigationPlaybookResponse = {
+  run_id: "playbook-run-1",
+  draft_id: "draft-risk",
+  category: "discolouration",
+  immediate_containment: [
+    {
+      id: "discolouration-containment-samples",
+      title: "Preserve samples and attachments",
+      rationale: "Complaint and retain samples should remain traceable for QA review.",
+      evidence_references: [],
+      owner_hint: "QA",
+      limitation: "Investigation support only."
+    }
+  ],
+  investigation_checklist: [
+    {
+      id: "discolouration-visual-comparison",
+      title: "Compare visual appearance",
+      rationale: "Compare complaint sample, retain sample and approved description.",
+      evidence_references: [],
+      owner_hint: "QA",
+      limitation: "Investigation support only."
+    }
+  ],
+  root_cause_hypotheses: [
+    {
+      id: "discolouration-hypothesis-process",
+      title: "Potential process-related factor",
+      rationale: "Evaluate only if evidence supports it.",
+      evidence_references: [],
+      owner_hint: "QA",
+      limitation: "Hypothesis only."
+    }
+  ],
+  CAPA_considerations: {
+    containment: [
+      {
+        id: "discolouration-capa-containment",
+        title: "Assess containment need",
+        rationale: "QA may consider inventory assessment after evidence review.",
+        evidence_references: [],
+        owner_hint: "QA",
+        limitation: "Does not create or approve a CAPA."
+      }
+    ]
+  },
+  limitations: ["Potential root-cause language is hypothesis-only."]
+};
+
+const inspectionBriefResponse = {
+  report_id: "brief-PQC-2026-000001-v1",
+  title: "Inspection-Ready Complaint Brief",
+  disclaimer: "AI-generated extraction, classifications and recommendations require review and approval by authorised quality personnel. This demonstration report is not a regulatory submission and does not itself establish regulatory compliance.",
+  complaint_id: "complaint-ledger-1",
+  complaint_number: "PQC-2026-000001",
+  version_number: 1,
+  document_identifier: "PQC-2026-000001-BRIEF-v1",
+  generated_at: "2026-07-31T00:00:00Z",
+  snapshot_checksum: "b".repeat(64),
+  report_checksum: "c".repeat(64),
+  sections: [
+    {
+      title: "Complaint Identification",
+      fields: [{ label: "Complaint Number", value: "PQC-2026-000001" }],
+      rows: [],
+      notes: []
+    },
+    {
+      title: "Classification",
+      fields: [{ label: "Suggested Severity", value: "MAJOR" }],
+      rows: [],
+      notes: []
+    }
+  ],
+  limitations: ["Requires authorised quality review and approval."]
+};
+
 const committedComplaint: ComplaintResponse = {
   id: "complaint-ledger-1",
   complaint_number: "PQC-2026-000001",
@@ -507,6 +678,51 @@ describe("App", () => {
 
     await waitFor(() => expect(window.sessionStorage.getItem("pharmaq_active_draft_id")).toBe("draft-replacement"));
     expect(screen.getByText("Saved complaint draft was unavailable, so a new draft was created.")).toBeInTheDocument();
+  });
+
+  test("shows a development demo AI badge when deterministic mode is enabled", async () => {
+    window.sessionStorage.setItem("pharmaq_active_draft_id", "draft-populated");
+    mockComplaintFetch((request) => {
+      if (request.url.endsWith("/health")) {
+        return jsonResponse({
+          status: "healthy",
+          service: "pharmaq-sentinel-api",
+          version: "0.1.0",
+          database: { provider: "mysql", status: "connected" }
+        });
+      }
+      if (request.url.endsWith("/ai/status")) {
+        return jsonResponse({
+          provider: "openai",
+          configured: false,
+          available: false,
+          model_configured: false,
+          model: null,
+          demo_ai_mode: "deterministic",
+          last_checked_at: "2026-07-31T00:00:00Z",
+          message: "AI service is not configured"
+        });
+      }
+      if (request.url.includes("/complaint-drafts/draft-populated/status")) {
+        return jsonResponse({
+          id: "draft-populated",
+          status: "DRAFT",
+          updated_at: populatedDraft.updated_at,
+          is_locked: false,
+          is_committed: false,
+          is_extraction_active: false
+        });
+      }
+      if (request.url.includes("/complaint-drafts/draft-populated")) {
+        return jsonResponse(populatedDraft);
+      }
+      return jsonResponse({ detail: "Unexpected request" }, 500);
+    });
+
+    renderApp();
+
+    expect(await screen.findByText("Development Demo AI")).toBeInTheDocument();
+    expect(screen.getByTestId("complaint-workspace").children).toHaveLength(2);
   });
 
   test("existing fields populate from Redux", async () => {
@@ -1028,6 +1244,77 @@ describe("App", () => {
     expect(screen.getByTestId("complaint-workspace").children).toHaveLength(2);
   });
 
+  test("inspection brief actions stay inside Evidence and Audit and preview overlays workspace", async () => {
+    window.sessionStorage.setItem("pharmaq_active_draft_id", "draft-risk");
+    const linkClick = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn(() => "blob:inspection-brief")
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn()
+    });
+    mockComplaintFetch((request) => {
+      if (request.url.includes("/inspection-brief?format=json")) {
+        return jsonResponse(inspectionBriefResponse);
+      }
+      if (request.url.includes("/inspection-brief?format=html")) {
+        return new Response("<h1>Inspection-Ready Complaint Brief</h1>", {
+          status: 200,
+          headers: { "Content-Type": "text/html" }
+        });
+      }
+      if (request.url.includes("/inspection-brief?format=pdf")) {
+        return new Response(new Blob(["%PDF-brief"], { type: "application/pdf" }), {
+          status: 200,
+          headers: { "Content-Type": "application/pdf" }
+        });
+      }
+      if (request.url.endsWith("/save") && request.method === "POST") {
+        return jsonResponse(committedComplaint);
+      }
+      if (request.url.includes("/timeline")) {
+        return jsonResponse(timelineResponse);
+      }
+      if (request.url.includes("/status")) {
+        return jsonResponse({
+          id: "draft-risk",
+          status: "DRAFT",
+          updated_at: riskDraft.updated_at,
+          is_locked: false,
+          is_committed: false,
+          is_extraction_active: false
+        });
+      }
+      return jsonResponse(riskDraft);
+    });
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByDisplayValue("BMX240602");
+    await user.click(screen.getByRole("button", { name: "Save Complaint" }));
+    const saveDialog = screen.getByRole("dialog", { name: "Save Complaint" });
+    await user.click(within(saveDialog).getByLabelText("I acknowledge the listed non-critical missing information."));
+    await user.click(within(saveDialog).getByRole("button", { name: "Save Complaint" }));
+    await user.click(screen.getByRole("button", { name: "Quality Intelligence" }));
+    await user.click(screen.getByRole("tab", { name: "Evidence & Audit" }));
+
+    expect(await screen.findByTestId("inspection-brief-actions")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Preview Inspection Brief" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Preview Inspection Brief" }));
+    expect(await screen.findByRole("dialog", { name: "Inspection Brief Preview" })).toBeInTheDocument();
+    expect(screen.getByTestId("complaint-workspace").children).toHaveLength(2);
+    await user.click(screen.getByRole("button", { name: "Close drawer" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Inspection Brief Preview" })).not.toBeInTheDocument()
+    );
+    await user.click(screen.getByRole("button", { name: "Download PDF" }));
+    await waitFor(() => expect(linkClick).toHaveBeenCalled());
+    await user.click(screen.getByRole("button", { name: "Copy Complaint Summary" }));
+    expect(await screen.findByText("Complaint summary copied.")).toBeInTheDocument();
+  });
+
   test("batch impact graph appears only in Batch Intelligence dock tab", async () => {
     window.sessionStorage.setItem("pharmaq_active_draft_id", "draft-risk");
     mockComplaintFetch((request) => {
@@ -1068,6 +1355,112 @@ describe("App", () => {
 
     expect(screen.queryByTestId("batch-impact-graph")).not.toBeInTheDocument();
     expect(screen.getByTestId("inspector-replay")).toBeInTheDocument();
+  });
+
+  test("quality war room remains inside the dock and preserves workspace columns", async () => {
+    window.sessionStorage.setItem("pharmaq_active_draft_id", "draft-risk");
+    mockComplaintFetch((request) => {
+      if (request.url.endsWith("/quality-war-room/runs") && request.method === "POST") {
+        return jsonResponse({ run_id: "war-room-run-1", status: "COMPLETE" }, 201);
+      }
+      if (request.url.includes("/quality-war-room/runs/war-room-run-1")) {
+        return jsonResponse(qualityWarRoomRun);
+      }
+      if (request.url.endsWith("/quality-war-room/runs")) {
+        return jsonResponse([qualityWarRoomRun]);
+      }
+      if (request.url.includes("/status")) {
+        return jsonResponse({
+          id: "draft-risk",
+          status: "DRAFT",
+          updated_at: riskDraft.updated_at,
+          is_locked: false,
+          is_committed: false,
+          is_extraction_active: false
+        });
+      }
+      return jsonResponse(riskDraft);
+    });
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByDisplayValue("BMX240602");
+    await user.click(screen.getByRole("button", { name: "Quality Intelligence" }));
+    await user.click(screen.getByRole("tab", { name: "Quality War Room" }));
+
+    expect(await screen.findByTestId("quality-war-room-panel")).toBeInTheDocument();
+    expect(await screen.findByTestId("consensus-panel")).toHaveTextContent("Human Approval");
+    expect(screen.getByTestId("complaint-workspace").children).toHaveLength(2);
+    expect(screen.getByTestId("quality-intelligence-dock").compareDocumentPosition(screen.getByTestId("complaint-workspace"))).toBe(Node.DOCUMENT_POSITION_PRECEDING);
+  });
+
+  test("investigation support shows details in dock and compact duplicate alert under form", async () => {
+    window.sessionStorage.setItem("pharmaq_active_draft_id", "draft-risk");
+    mockComplaintFetch((request) => {
+      if (request.url.endsWith("/duplicate-analysis") && request.method === "POST") {
+        return jsonResponse(duplicateAnalysisResponse);
+      }
+      if (request.url.endsWith("/investigation-playbook") && request.method === "POST") {
+        return jsonResponse(investigationPlaybookResponse);
+      }
+      if (request.url.includes("/status")) {
+        return jsonResponse({
+          id: "draft-risk",
+          status: "DRAFT",
+          updated_at: riskDraft.updated_at,
+          is_locked: false,
+          is_committed: false,
+          is_extraction_active: false
+        });
+      }
+      return jsonResponse(riskDraft);
+    });
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByDisplayValue("BMX240602");
+    await user.click(screen.getByRole("button", { name: "Quality Intelligence" }));
+    await user.click(screen.getByRole("tab", { name: "Investigation Support" }));
+    await user.click(screen.getByRole("button", { name: "Run Support" }));
+
+    expect(await screen.findByTestId("duplicate-summary-alert")).toHaveTextContent("HC-2026-001");
+    expect(screen.getByTestId("investigation-support-panel")).toHaveTextContent("Root-Cause Hypotheses");
+    expect(screen.getByTestId("duplicate-details-table")).toHaveTextContent("POSSIBLE DUPLICATE");
+    expect(screen.getByTestId("complaint-workspace").children).toHaveLength(2);
+  });
+
+  test("duplicate summary view details opens existing investigation support tab", async () => {
+    window.sessionStorage.setItem("pharmaq_active_draft_id", "draft-risk");
+    mockComplaintFetch((request) => {
+      if (request.url.endsWith("/duplicate-analysis") && request.method === "POST") {
+        return jsonResponse(duplicateAnalysisResponse);
+      }
+      if (request.url.endsWith("/investigation-playbook") && request.method === "POST") {
+        return jsonResponse(investigationPlaybookResponse);
+      }
+      if (request.url.includes("/status")) {
+        return jsonResponse({
+          id: "draft-risk",
+          status: "DRAFT",
+          updated_at: riskDraft.updated_at,
+          is_locked: false,
+          is_committed: false,
+          is_extraction_active: false
+        });
+      }
+      return jsonResponse(riskDraft);
+    });
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByDisplayValue("BMX240602");
+    await user.click(screen.getByRole("button", { name: "Quality Intelligence" }));
+    await user.click(screen.getByRole("tab", { name: "Investigation Support" }));
+    await user.click(screen.getByRole("button", { name: "Run Support" }));
+    await user.click(await screen.findByRole("button", { name: "View details" }));
+
+    expect(screen.getByRole("tab", { name: "Investigation Support" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("duplicate-details-table")).toBeInTheDocument();
   });
 
   test("batch impact node drawer overlays without changing workspace columns", async () => {

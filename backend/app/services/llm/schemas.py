@@ -85,6 +85,7 @@ class AIStatusResponse(BaseModel):
     available: bool
     model_configured: bool
     model: str | None
+    demo_ai_mode: Literal["live", "deterministic"]
     last_checked_at: datetime
     message: str
 

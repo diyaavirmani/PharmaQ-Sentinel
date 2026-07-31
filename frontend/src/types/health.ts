@@ -12,3 +12,14 @@ export interface HealthResponse {
   version: string;
   database: DatabaseHealth;
 }
+
+export interface AiStatusResponse {
+  provider: "openai";
+  configured: boolean;
+  available: boolean;
+  model_configured: boolean;
+  model: string | null;
+  demo_ai_mode: "live" | "deterministic";
+  last_checked_at: string;
+  message: string;
+}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
+import { checkBackendHealth } from "../app/store";
 import { ComplaintWorkspace } from "../components/complaint/ComplaintWorkspace";
 import {
   useCreateComplaintDraftMutation,
@@ -27,6 +28,7 @@ import {
   selectShouldEnableSaveComplaint
 } from "../features/complaint/complaintSelectors";
 import type { WorkspaceViewState } from "../types/complaintWorkspace";
+import type { DuplicateAnalysisResult, InvestigationPlaybookResult } from "../features/investigationSupport/investigationSupportTypes";
 import "../styles/workspace.css";
 
 const activeDraftStorageKey = "pharmaq_active_draft_id";
@@ -59,6 +61,9 @@ function visualRegressionStateFromQuery(): WorkspaceViewState | null {
 export function ComplaintWorkspacePage() {
   const dispatch = useAppDispatch();
   const complaintState = useAppSelector(selectComplaintState);
+  const demoAiMode = useAppSelector((state) => state.applicationStatus.demoAiMode);
+  const [duplicateAnalysis, setDuplicateAnalysis] = useState<DuplicateAnalysisResult | null>(null);
+  const [investigationPlaybook, setInvestigationPlaybook] = useState<InvestigationPlaybookResult | null>(null);
   const canSaveComplaint = useAppSelector(selectShouldEnableSaveComplaint);
   const [storedDraftId, setStoredDraftId] = useState<string | null>(() => getStoredDraftId());
   const createStartedRef = useRef(false);
@@ -109,6 +114,12 @@ export function ComplaintWorkspacePage() {
   const timelineQuery = useGetComplaintTimelineQuery(activeDraftId ?? "", {
     skip: Boolean(visualState) || !activeDraftId
   });
+
+  useEffect(() => {
+    if (!visualState) {
+      void dispatch(checkBackendHealth());
+    }
+  }, [dispatch, visualState]);
 
   useEffect(() => {
     if (storedDraftId) {
@@ -231,6 +242,11 @@ export function ComplaintWorkspacePage() {
 
   return (
     <main className="workspace-page" aria-label="PharmaQ Sentinel complaint workspace" data-font-family="Inter">
+      {demoAiMode === "deterministic" && !visualState ? (
+        <div className="demo-ai-badge" role="status">
+          Development Demo AI
+        </div>
+      ) : null}
       <ComplaintWorkspace
         workspaceState={workspaceState}
         onResetConfirmed={handleResetConfirmed}
@@ -257,6 +273,10 @@ export function ComplaintWorkspacePage() {
         activeDraftId={activeDraftId}
         isIntelligenceDockExpanded={complaintState.isIntelligenceDockExpanded}
         activeIntelligenceTab={complaintState.activeIntelligenceTab}
+        duplicateAnalysis={duplicateAnalysis}
+        investigationPlaybook={investigationPlaybook}
+        onDuplicateAnalysisComplete={setDuplicateAnalysis}
+        onInvestigationPlaybookComplete={setInvestigationPlaybook}
         onIntelligenceDockExpandedChange={(isExpanded) => dispatch(setIntelligenceDockExpanded(isExpanded))}
         onActiveIntelligenceTabChange={(tab) => dispatch(setActiveIntelligenceTab(tab))}
       />

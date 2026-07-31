@@ -81,6 +81,7 @@ def build_ai_status(settings: Settings | None = None) -> AIStatusResponse:
             available=False,
             model_configured=model_configured,
             model=resolved_settings.openai_model or None,
+            demo_ai_mode=resolved_settings.demo_ai_mode,
             last_checked_at=provider_status_cache.last_checked_at or utc_now(),
             message="AI service is not configured",
         )
@@ -92,6 +93,7 @@ def build_ai_status(settings: Settings | None = None) -> AIStatusResponse:
             available=False,
             model_configured=True,
             model=resolved_settings.openai_model,
+            demo_ai_mode=resolved_settings.demo_ai_mode,
             last_checked_at=provider_status_cache.last_checked_at or utc_now(),
             message=provider_status_cache.message or "AI service unavailable",
         )
@@ -102,6 +104,7 @@ def build_ai_status(settings: Settings | None = None) -> AIStatusResponse:
         available=True,
         model_configured=True,
         model=resolved_settings.openai_model,
+        demo_ai_mode=resolved_settings.demo_ai_mode,
         last_checked_at=provider_status_cache.last_checked_at or utc_now(),
         message=provider_status_cache.message or "AI service available",
     )

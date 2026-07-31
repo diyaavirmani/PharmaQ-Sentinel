@@ -136,6 +136,8 @@ The gateway does not retry:
 
 `GET /api/v1/ai/status` returns a safe configuration/status snapshot. It never returns API keys, organization secrets, raw exception objects, or database values.
 
+The status response includes `demo_ai_mode`, which is safe to expose because it is not a secret.
+
 The health endpoint does not make paid OpenAI requests.
 
 `POST /api/v1/ai/test-connection` is available only when:
@@ -164,3 +166,9 @@ OpenAI calls may add cost and latency. Future tools should:
 ## Limitations
 
 The gateway does not make AI output authoritative. Future extraction, risk, routing, CAPA, Batch Intelligence, and Quality War Room tools must present AI output as draft recommendations with evidence, confidence, limitations, and actual model metadata.
+
+## Live Versus Deterministic Demo Mode
+
+`DEMO_AI_MODE=live` is the default.
+
+`DEMO_AI_MODE=deterministic` is allowed only for explicitly labelled local demos when live OpenAI access is unavailable. Deterministic outputs must come from stable rules or checked-in fixtures and must not be described as live OpenAI responses.

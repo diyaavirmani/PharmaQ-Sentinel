@@ -28,6 +28,10 @@ from app.agents.complaint.schemas import (
     ComplaintFieldExtraction,
     ProvisionalRiskAssessment,
 )
+from app.agents.quality_war_room.agents.compliance_auditor import run_compliance_auditor
+from app.agents.quality_war_room.context_builder import build_quality_war_room_context
+from app.agents.quality_war_room.graph import run_quality_war_room
+from app.agents.quality_war_room.schemas import SpecialistOutput
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.exceptions import PharmaQSentinelError
@@ -43,13 +47,18 @@ from app.models import (
     ComplaintAttachment,
     ComplaintDraft,
     ComplaintStatus,
+    DuplicateAnalysisRun,
     EvidenceType,
     ExtractionStatus,
     FieldEvidence,
+    InvestigationPlaybookRun,
+    InvestigationReviewAction,
     MessageRole,
     Priority,
     Product,
     ProductType,
+    QualityWarRoomEvent,
+    QualityWarRoomRun,
     RiskAssessmentVersion,
     Severity,
 )
@@ -63,8 +72,11 @@ from app.repositories.complaint_versions import ComplaintVersionRepository
 from app.repositories.complaints import ComplaintRepository
 from app.repositories.evidence import FieldEvidenceRepository
 from app.repositories.messages import ComplaintMessageRepository
+from app.schemas.complaints import SaveComplaintRequest
 from app.services.batch_impact import build_batch_impact_analysis
 from app.services.batch_impact.language_rules import assert_safe_batch_impact_language
+from app.services.complaint_intelligence import run_duplicate_analysis
+from app.services.complaint_save import save_complaint
 from app.services.complaint_snapshots import (
     ComplaintSnapshotService,
     checksum_snapshot,
@@ -75,6 +87,11 @@ from app.services.documents.email_parser import EmailDocumentParser
 from app.services.documents.pdf_parser import PdfDocumentParser
 from app.services.documents.security import detect_mime, validate_extension
 from app.services.documents.text_parser import TextDocumentParser
+from app.services.investigation.playbook_engine import (
+    create_investigation_playbook,
+    record_review_action,
+)
+from app.services.investigation.schemas import InvestigationReviewActionRequest
 from app.services.llm import LLMUsage, StructuredLLMResult
 from app.services.quality import assess_pharma_risk
 from app.services.quality.completeness import evaluate_completeness
@@ -82,6 +99,11 @@ from app.services.quality.defect_taxonomy import classify_defects
 from app.services.quality.safety_router import route_safety
 from app.services.quality.safety_rules import evaluate_safety_rules
 from app.services.quality.schemas import PharmaRiskAssessment, SafetyReviewRoute
+from app.services.reports import (
+    build_complaint_brief,
+    render_complaint_brief_html,
+    render_complaint_brief_pdf,
+)
 from app.utilities.seed_database import seed_database
 
 pytestmark = pytest.mark.mysql
@@ -104,13 +126,18 @@ EXPECTED_TABLES = {
     "complaints",
     "deviations",
     "distribution_records",
+    "duplicate_analysis_runs",
     "equipment",
     "field_evidence",
     "historical_complaints",
+    "investigation_playbook_runs",
+    "investigation_review_actions",
     "manufacturing_lines",
     "material_lots",
     "packaging_material_lots",
     "products",
+    "quality_war_room_events",
+    "quality_war_room_runs",
     "risk_assessment_versions",
     "suppliers",
     "warehouse_inventory",
@@ -577,6 +604,130 @@ def test_ledger_endpoints_search_filters_versions_and_timeline(db_session: Sessi
     timeline = client.get(f"/api/v1/complaints/{complaint_id}/timeline")
     assert timeline.status_code == 200
     assert "SAVE_COMPLAINT" in {item["event_type"] for item in timeline.json()["items"]}
+
+
+def seed_saved_complaint_with_report_context(db_session: Session) -> Complaint:
+    draft = seed_saveable_draft(db_session, thread_id="thread-report")
+    attachment = ComplaintAttachment(
+        draft_id=draft.id,
+        original_filename="amoxicillin-demo-complaint.pdf",
+        stored_filename="safe-upload-name.pdf",
+        mime_type="application/pdf",
+        file_size=2048,
+        sha256_checksum="a" * 64,
+        storage_path="C:/private/uploads/safe-upload-name.pdf",
+        extracted_text=(
+            "Apollo Pharmacy reported discoloured capsules. Hinglish note: "
+            "capsule ka colour badal gaya."
+        ),
+        extraction_status=ExtractionStatus.COMPLETE.value,
+        extraction_stage="COMPLETE",
+        extraction_progress=100,
+    )
+    db_session.add(attachment)
+    db_session.flush()
+    db_session.add_all(
+        [
+            FieldEvidence(
+                draft_id=draft.id,
+                field_name="batch_lot_number",
+                field_value={"value": "BMX240602"},
+                evidence_type=EvidenceType.USER_CORRECTION.value,
+                source_excerpt="Sorry, the batch is BMX240602.",
+                confidence=Decimal("1.0000"),
+                extraction_method="EDIT_COMPLAINT",
+                is_explicit=True,
+                is_active=True,
+            ),
+            FieldEvidence(
+                draft_id=draft.id,
+                field_name="detailed_description",
+                field_value={"value": draft.detailed_description},
+                evidence_type=EvidenceType.USER_TEXT.value,
+                source_excerpt="Hinglish: capsule ka colour badal gaya.",
+                confidence=Decimal("0.9000"),
+                extraction_method="LOG_COMPLAINT",
+                is_explicit=True,
+                is_active=True,
+            ),
+        ]
+    )
+    db_session.flush()
+    complaint = save_complaint(
+        db_session,
+        draft_id=draft.id,
+        request=SaveComplaintRequest.model_validate(
+            save_request(idempotency_key="report-save-key"),
+        ),
+    )
+    db_session.add(
+        FieldEvidence(
+            draft_id=draft.id,
+            field_name="batch_lot_number",
+            field_value={"value": "AMX240602"},
+            evidence_type=EvidenceType.PDF.value,
+            source_attachment_id=attachment.id,
+            page_number=1,
+            source_excerpt="PDF said AMX240602 <script>alert('x')</script> खराब",
+            confidence=Decimal("0.7100"),
+            extraction_method="EXTRACT_DOCUMENT",
+            is_explicit=True,
+            is_active=False,
+        )
+    )
+    db_session.flush()
+    return complaint
+
+
+def test_inspection_brief_complete_json_html_pdf_and_security(db_session: Session) -> None:
+    complaint = seed_saved_complaint_with_report_context(db_session)
+
+    brief = build_complaint_brief(db_session, complaint_id=complaint.id)
+    html = render_complaint_brief_html(brief)
+    pdf = render_complaint_brief_pdf(brief)
+
+    section_titles = {section.title for section in brief.sections}
+    assert "Complaint Snapshot Checksum" in section_titles
+    assert "Complete Audit Timeline" in section_titles
+    assert "Provider, Model And Prompt Versions" in section_titles
+    assert len(brief.snapshot_checksum) == 64
+    assert brief.source_documents[0].original_filename == "amoxicillin-demo-complaint.pdf"
+    assert "storage_path" not in brief.model_dump_json()
+    assert "C:/private/uploads" not in brief.model_dump_json()
+    assert "&lt;script&gt;" in html
+    assert "<script>alert" not in html
+    assert "chain of thought" not in brief.model_dump_json().lower()
+    assert pdf.startswith(b"%PDF")
+    assert len(pdf) > 1000
+
+
+def test_inspection_brief_endpoint_formats_and_unsupported_format(db_session: Session) -> None:
+    complaint = seed_saved_complaint_with_report_context(db_session)
+    client = TestClient(make_app_with_session(db_session))
+
+    json_response = client.get(f"/api/v1/complaints/{complaint.id}/inspection-brief?format=json")
+    html_response = client.get(f"/api/v1/complaints/{complaint.id}/inspection-brief?format=html")
+    pdf_response = client.get(f"/api/v1/complaints/{complaint.id}/inspection-brief?format=pdf")
+    unsupported_response = client.get(f"/api/v1/complaints/{complaint.id}/inspection-brief?format=docx")
+
+    assert json_response.status_code == 200
+    assert json_response.json()["snapshot_checksum"]
+    assert html_response.status_code == 200
+    assert "text/html" in html_response.headers["content-type"]
+    assert pdf_response.status_code == 200
+    assert pdf_response.headers["content-type"] == "application/pdf"
+    assert pdf_response.content.startswith(b"%PDF")
+    assert unsupported_response.status_code == 422
+
+
+def test_inspection_brief_requires_saved_version(db_session: Session) -> None:
+    draft, complaint = create_draft_and_complaint(db_session)
+    assert draft.id
+
+    with pytest.raises(PharmaQSentinelError) as error:
+        build_complaint_brief(db_session, complaint_id=complaint.id)
+
+    assert error.value.status_code == 409
 
 
 def test_unique_batch_number_constraint(db_session: Session) -> None:
@@ -2570,3 +2721,122 @@ def test_containment_simulation_does_not_modify_database_and_explains_scope(db_s
         (record.id, record.quantity_available, record.quantity_on_hold)
         for record in batch.warehouse_inventory
     ] == before_inventory
+
+
+def test_quality_war_room_context_scopes_specialist_data(db_session: Session) -> None:
+    draft = seed_batch_impact_draft(db_session)
+    draft.customer_contact = "private@example.test"
+    draft.patient_consumed_product = True
+    db_session.add(
+        FieldEvidence(
+            draft_id=draft.id,
+            field_name="detailed_description",
+            field_value={"value": draft.detailed_description},
+            evidence_type=EvidenceType.USER_TEXT.value,
+            confidence=Decimal("0.9000"),
+            is_explicit=True,
+            is_active=True,
+        )
+    )
+    db_session.flush()
+
+    context = build_quality_war_room_context(db_session, draft.id)
+
+    assert "customer_contact" not in context["specialist_contexts"]["packaging"]["complaint"]
+    assert "adverse_event_signal" not in context["specialist_contexts"]["packaging"]["complaint"]
+    assert "batch_impact_summary" not in context["specialist_contexts"]["pv"]
+
+
+def test_quality_war_room_run_persists_events_and_no_chain_of_thought(db_session: Session) -> None:
+    draft = seed_batch_impact_draft(db_session)
+    run_id = run_quality_war_room(db_session, draft_id=draft.id)
+
+    run = db_session.get(QualityWarRoomRun, run_id)
+    events = db_session.scalars(select(QualityWarRoomEvent).where(QualityWarRoomEvent.run_id == run_id)).all()
+    payload_text = str(run.specialist_outputs_json) + str(run.auditor_output_json) + str(run.consensus_json)
+
+    assert run is not None
+    assert run.status == "COMPLETE"
+    assert run.iteration_count <= 2
+    assert {event.event_type for event in events} >= {"war_room_started", "context_prepared", "consensus_completed"}
+    assert "prompt" not in payload_text.lower()
+    assert "chain" not in payload_text.lower()
+
+
+def test_quality_war_room_auditor_rejects_final_causation_language() -> None:
+    output = SpecialistOutput(
+        agent_name="Manufacturing Investigator",
+        concise_findings=["The deviation caused by seal temperature is confirmed root cause."],
+        hypotheses=["confirmed root cause"],
+        confidence="LOW",
+    )
+
+    auditor = run_compliance_auditor({"manufacturing": output})
+
+    assert auditor.rejected_claims
+    assert auditor.specialist_revision_requests["manufacturing"]
+
+
+def test_duplicate_analysis_detects_seeded_recurrence_and_persists(db_session: Session) -> None:
+    draft = seed_batch_impact_draft(db_session)
+
+    result = run_duplicate_analysis(db_session, draft_id=draft.id, created_by="Demo User")
+
+    assert result.candidates
+    assert result.candidates[0].classification in {
+        "LIKELY_EXACT_DUPLICATE",
+        "POSSIBLE_DUPLICATE",
+        "RECURRENCE_SIGNAL",
+        "RELATED_QUALITY_SIGNAL",
+    }
+    assert result.recurrence_signals
+    assert db_session.scalars(select(DuplicateAnalysisRun).where(DuplicateAnalysisRun.draft_id == draft.id)).one()
+
+
+def test_investigation_playbook_uses_hypothesis_language_and_persists_review_action(db_session: Session) -> None:
+    draft = seed_batch_impact_draft(db_session)
+
+    result = create_investigation_playbook(db_session, draft_id=draft.id, created_by="Demo User")
+    action = record_review_action(
+        db_session,
+        draft_id=draft.id,
+        request=InvestigationReviewActionRequest(
+            action_type="DISMISS_SUGGESTION",
+            target_type="PLAYBOOK_STEP",
+            target_id=result.root_cause_hypotheses[0].id,
+            run_id=result.run_id,
+            reason="Reviewer needs more source evidence.",
+        ),
+    )
+    payload_text = result.model_dump_json().lower()
+
+    assert result.category == "discolouration"
+    assert "confirmed root cause" not in payload_text
+    assert set(result.CAPA_considerations) == {
+        "containment",
+        "correction",
+        "corrective_action",
+        "preventive_action",
+        "effectiveness_check",
+    }
+    assert db_session.scalars(select(InvestigationPlaybookRun).where(InvestigationPlaybookRun.draft_id == draft.id)).one()
+    assert db_session.get(InvestigationReviewAction, action.id)
+
+
+def test_quality_war_room_and_investigation_endpoints(db_session: Session) -> None:
+    draft = seed_batch_impact_draft(db_session)
+    client = TestClient(make_app_with_session(db_session))
+
+    war_room_response = client.post(f"/api/v1/complaint-drafts/{draft.id}/quality-war-room/runs", json={"created_by": "Demo User"})
+    duplicate_response = client.post(f"/api/v1/complaint-drafts/{draft.id}/duplicate-analysis", json={"created_by": "Demo User"})
+    playbook_response = client.post(f"/api/v1/complaint-drafts/{draft.id}/investigation-playbook", json={"created_by": "Demo User"})
+
+    assert war_room_response.status_code == 201
+    run_id = war_room_response.json()["run_id"]
+    stream = client.get(f"/api/v1/complaint-drafts/{draft.id}/quality-war-room/runs/{run_id}/stream")
+    assert stream.status_code == 200
+    assert "event: war_room_started" in stream.text
+    assert duplicate_response.status_code == 200
+    assert duplicate_response.json()["candidates"]
+    assert playbook_response.status_code == 200
+    assert playbook_response.json()["CAPA_considerations"]["containment"]

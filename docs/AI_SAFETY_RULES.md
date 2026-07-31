@@ -99,3 +99,19 @@ The AI must not act as final authority for:
 - Apply changes only through audit-aware application services.
 - Persist model metadata and actual model used.
 - Log operational failures without leaking secrets.
+
+## Demo Mode
+
+`DEMO_AI_MODE` supports `live` and `deterministic`.
+
+- `live` is the default for normal local development and production-like configuration.
+- `deterministic` is allowed only for clearly labelled local demonstrations or tests.
+- Production configuration must not default to deterministic mode.
+- Deterministic outputs must come from stable rules or checked-in fixtures, not random fake answers.
+- Deterministic output must not be described as a live OpenAI response.
+
+## Inspection Brief Safety
+
+The inspection brief is a review aid generated from a saved complaint version snapshot and linked immutable or append-only records. It must include the required disclaimer and must not be described as an official regulatory submission, regulator-approved document, validated record, Part 11 compliant record, or replacement for authorised QA review.
+
+Inspection briefs must not expose internal storage paths, API keys, database credentials, hidden reasoning, prompt text, or model chain-of-thought.

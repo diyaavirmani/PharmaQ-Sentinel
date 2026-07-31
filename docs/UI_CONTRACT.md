@@ -214,6 +214,10 @@ Audit Timeline:
 Inspection Brief:
 
 - Display preview and export actions inside Evidence & Audit.
+- Preview must open in an overlay or modal without navigating away.
+- Download and copy actions must use existing button styles.
+- Inspection brief actions must not add a permanent toolbar, sidebar, or third column.
+- The locked form, assistant panel, and approximately 59/41 desktop layout must remain visible behind the overlay.
 
 Root Cause and CAPA suggestions:
 

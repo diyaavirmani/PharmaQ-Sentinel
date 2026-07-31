@@ -125,6 +125,10 @@ class ComplaintDraft(UUIDPrimaryKeyMixin, TimestampMixin, CreatedByMixin, Compla
     audit_events: Mapped[list[AuditEvent]] = relationship(back_populates="draft")
     agent_runs: Mapped[list[AgentRun]] = relationship(back_populates="draft")
     batch_impact_runs: Mapped[list[BatchImpactRun]] = relationship(back_populates="draft")
+    quality_war_room_runs: Mapped[list[QualityWarRoomRun]] = relationship(back_populates="draft")
+    duplicate_analysis_runs: Mapped[list[DuplicateAnalysisRun]] = relationship(back_populates="draft")
+    investigation_playbook_runs: Mapped[list[InvestigationPlaybookRun]] = relationship(back_populates="draft")
+    investigation_review_actions: Mapped[list[InvestigationReviewAction]] = relationship(back_populates="draft")
     committed_complaints: Mapped[list[Complaint]] = relationship(back_populates="committed_from_draft")
 
     @validates(*OPTIONAL_STRING_FIELDS)
@@ -508,3 +512,130 @@ class BatchImpactRun(UUIDPrimaryKeyMixin, Base):
     status: Mapped[str] = mapped_column(String(40), nullable=False)
 
     draft: Mapped[ComplaintDraft] = relationship(back_populates="batch_impact_runs")
+
+
+class QualityWarRoomRun(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "quality_war_room_runs"
+    __table_args__ = (
+        Index("ix_quality_war_room_runs_draft_id", "draft_id"),
+        Index("ix_quality_war_room_runs_status", "status"),
+        Index("ix_quality_war_room_runs_started_at", "started_at"),
+        MYSQL_TABLE_KWARGS,
+    )
+
+    draft_id: Mapped[str] = mapped_column(
+        CHAR(36),
+        ForeignKey("complaint_drafts.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    input_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    iteration_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    specialist_outputs_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    auditor_output_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    consensus_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    provider: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    model: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=utc_now, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DATETIME(fsp=6), nullable=True)
+    error_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    draft: Mapped[ComplaintDraft] = relationship(back_populates="quality_war_room_runs")
+    events: Mapped[list[QualityWarRoomEvent]] = relationship(back_populates="run")
+
+
+class QualityWarRoomEvent(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "quality_war_room_events"
+    __table_args__ = (
+        Index("ix_quality_war_room_events_run_id", "run_id"),
+        Index("ix_quality_war_room_events_event_type", "event_type"),
+        Index("ix_quality_war_room_events_created_at", "created_at"),
+        MYSQL_TABLE_KWARGS,
+    )
+
+    run_id: Mapped[str] = mapped_column(
+        CHAR(36),
+        ForeignKey("quality_war_room_runs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    event_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    agent_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    concise_message: Mapped[str] = mapped_column(String(500), nullable=False)
+    evidence_ids_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=utc_now, nullable=False)
+
+    run: Mapped[QualityWarRoomRun] = relationship(back_populates="events")
+
+
+class DuplicateAnalysisRun(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "duplicate_analysis_runs"
+    __table_args__ = (
+        Index("ix_duplicate_analysis_runs_draft_id", "draft_id"),
+        Index("ix_duplicate_analysis_runs_status", "status"),
+        Index("ix_duplicate_analysis_runs_created_at", "created_at"),
+        MYSQL_TABLE_KWARGS,
+    )
+
+    draft_id: Mapped[str] = mapped_column(
+        CHAR(36),
+        ForeignKey("complaint_drafts.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    input_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
+    result_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=utc_now, nullable=False)
+    created_by: Mapped[str | None] = mapped_column(String(150), nullable=True)
+
+    draft: Mapped[ComplaintDraft] = relationship(back_populates="duplicate_analysis_runs")
+
+
+class InvestigationPlaybookRun(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "investigation_playbook_runs"
+    __table_args__ = (
+        Index("ix_investigation_playbook_runs_draft_id", "draft_id"),
+        Index("ix_investigation_playbook_runs_status", "status"),
+        Index("ix_investigation_playbook_runs_created_at", "created_at"),
+        MYSQL_TABLE_KWARGS,
+    )
+
+    draft_id: Mapped[str] = mapped_column(
+        CHAR(36),
+        ForeignKey("complaint_drafts.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    input_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
+    playbook_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=utc_now, nullable=False)
+    created_by: Mapped[str | None] = mapped_column(String(150), nullable=True)
+
+    draft: Mapped[ComplaintDraft] = relationship(back_populates="investigation_playbook_runs")
+
+
+class InvestigationReviewAction(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "investigation_review_actions"
+    __table_args__ = (
+        Index("ix_investigation_review_actions_draft_id", "draft_id"),
+        Index("ix_investigation_review_actions_run_id", "run_id"),
+        Index("ix_investigation_review_actions_created_at", "created_at"),
+        MYSQL_TABLE_KWARGS,
+    )
+
+    draft_id: Mapped[str] = mapped_column(
+        CHAR(36),
+        ForeignKey("complaint_drafts.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    run_id: Mapped[str | None] = mapped_column(CHAR(36), nullable=True)
+    action_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    target_id: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    original_text_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    saved_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    actor_identifier: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=utc_now, nullable=False)
+
+    draft: Mapped[ComplaintDraft] = relationship(back_populates="investigation_review_actions")

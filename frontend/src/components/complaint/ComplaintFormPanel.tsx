@@ -1,4 +1,5 @@
 import type { ComplaintDraftState } from "../../types/complaintWorkspace";
+import type { DuplicateAnalysisResult } from "../../features/investigationSupport/investigationSupportTypes";
 import { StatusBadge } from "../common/StatusBadge";
 import { ComplaintFooterActions } from "./ComplaintFooterActions";
 import { ComplaintSection } from "./ComplaintSection";
@@ -18,6 +19,8 @@ interface ComplaintFormPanelProps {
   committedComplaintId?: string | null;
   onAskFollowUpQuestions?: (questions: string[]) => void;
   onViewFieldEvidence?: (fieldName: string, label: string) => void;
+  duplicateAnalysis?: DuplicateAnalysisResult | null;
+  onViewDuplicateDetails?: () => void;
 }
 
 export function ComplaintFormPanel({
@@ -32,9 +35,12 @@ export function ComplaintFormPanel({
   canSave = false,
   committedComplaintId = null,
   onAskFollowUpQuestions,
-  onViewFieldEvidence
+  onViewFieldEvidence,
+  duplicateAnalysis = null,
+  onViewDuplicateDetails
 }: ComplaintFormPanelProps) {
   const { fields } = draft;
+  const strongestDuplicate = duplicateAnalysis?.candidates[0] ?? null;
   function evidenceHandler(fieldName: string | undefined, label: string) {
     if (!fieldName) {
       return undefined;
@@ -113,6 +119,19 @@ export function ComplaintFormPanel({
           onAskFollowUpQuestions={onAskFollowUpQuestions}
           onViewFieldEvidence={onViewFieldEvidence}
         />
+        {strongestDuplicate ? (
+          <div className="duplicate-summary-alert" data-testid="duplicate-summary-alert">
+            <div>
+              <strong>{duplicateAnalysis?.candidates.length ?? 0} potential duplicate or recurrence candidate(s)</strong>
+              <span>
+                Strongest: {strongestDuplicate.complaint_number} · {strongestDuplicate.classification.replace(/_/g, " ")}
+              </span>
+            </div>
+            <button type="button" className="button button--secondary" onClick={onViewDuplicateDetails}>
+              View details
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <ComplaintFooterActions

@@ -11,6 +11,7 @@ def test_configuration_loading() -> None:
     assert settings.app_name == "PharmaQ Sentinel"
     assert settings.app_version == "0.1.0"
     assert settings.llm_provider == "openai"
+    assert settings.demo_ai_mode == "live"
     assert settings.database_url_value().startswith("mysql+pymysql://")
 
 
@@ -32,6 +33,12 @@ def test_secret_values_not_present_in_serialised_settings() -> None:
 def test_wildcard_cors_is_rejected() -> None:
     with pytest.raises(ValueError, match="Wildcard CORS"):
         Settings(_env_file=None, BACKEND_CORS_ORIGINS="*")
+
+
+def test_demo_ai_mode_is_validated() -> None:
+    assert Settings(_env_file=None, DEMO_AI_MODE="deterministic").demo_ai_mode == "deterministic"
+    with pytest.raises(ValueError, match="DEMO_AI_MODE"):
+        Settings(_env_file=None, DEMO_AI_MODE="random")
 
 
 def test_cors_configuration() -> None:

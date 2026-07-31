@@ -88,6 +88,7 @@ class Settings(BaseSettings):
         default=False,
         validation_alias="OPENAI_ENABLE_TEST_CONNECTION",
     )
+    demo_ai_mode: str = Field(default="live", validation_alias="DEMO_AI_MODE")
     enable_development_patch_endpoint: bool = Field(
         default=False,
         validation_alias="ENABLE_DEVELOPMENT_PATCH_ENDPOINT",
@@ -116,6 +117,14 @@ class Settings(BaseSettings):
             raise ValueError("Wildcard CORS origins are not allowed")
 
         return value
+
+    @field_validator("demo_ai_mode")
+    @classmethod
+    def validate_demo_ai_mode(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in {"live", "deterministic"}:
+            raise ValueError("DEMO_AI_MODE must be live or deterministic")
+        return normalized
 
     @field_validator("database_url", "test_database_url")
     @classmethod
@@ -147,6 +156,7 @@ class Settings(BaseSettings):
             "openai_live_tests_enabled": self.openai_enable_live_tests,
             "openai_prompt_logging_enabled": self.openai_log_prompts,
             "openai_test_connection_endpoint_enabled": self.openai_enable_test_connection_endpoint,
+            "demo_ai_mode": self.demo_ai_mode,
             "development_patch_endpoint_enabled": self.enable_development_patch_endpoint,
             "upload_directory": self.upload_directory,
             "max_upload_size_mb": self.max_upload_size_mb,

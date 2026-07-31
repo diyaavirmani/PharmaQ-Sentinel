@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FieldEvidenceDetailResponse, IntelligenceTab, TimelineEntryResponse } from "../../features/complaint/complaintTypes";
+import type { DuplicateAnalysisResult, InvestigationPlaybookResult } from "../../features/investigationSupport/investigationSupportTypes";
 import type { ComplaintWorkspaceState } from "../../types/complaintWorkspace";
 import { ComplaintAssistantPanel } from "../assistant/ComplaintAssistantPanel";
 import { ConfirmationModal } from "../common/ConfirmationModal";
@@ -40,6 +41,10 @@ interface ComplaintWorkspaceProps {
   activeIntelligenceTab: IntelligenceTab;
   onIntelligenceDockExpandedChange: (isExpanded: boolean) => void;
   onActiveIntelligenceTabChange: (tab: IntelligenceTab) => void;
+  duplicateAnalysis?: DuplicateAnalysisResult | null;
+  investigationPlaybook?: InvestigationPlaybookResult | null;
+  onDuplicateAnalysisComplete?: (result: DuplicateAnalysisResult) => void;
+  onInvestigationPlaybookComplete?: (result: InvestigationPlaybookResult) => void;
 }
 
 export function ComplaintWorkspace({
@@ -69,7 +74,11 @@ export function ComplaintWorkspace({
   isIntelligenceDockExpanded,
   activeIntelligenceTab,
   onIntelligenceDockExpandedChange,
-  onActiveIntelligenceTabChange
+  onActiveIntelligenceTabChange,
+  duplicateAnalysis = null,
+  investigationPlaybook = null,
+  onDuplicateAnalysisComplete,
+  onInvestigationPlaybookComplete
 }: ComplaintWorkspaceProps) {
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
@@ -129,6 +138,11 @@ export function ComplaintWorkspace({
           committedComplaintId={committedComplaintId}
           onAskFollowUpQuestions={onAskFollowUpQuestions}
           onViewFieldEvidence={onViewFieldEvidence}
+          duplicateAnalysis={duplicateAnalysis}
+          onViewDuplicateDetails={() => {
+            onIntelligenceDockExpandedChange(true);
+            onActiveIntelligenceTabChange("Investigation Support");
+          }}
         />
         <ComplaintAssistantPanel
           extraction={workspaceState.extraction}
@@ -145,8 +159,13 @@ export function ComplaintWorkspace({
         isExpanded={isIntelligenceDockExpanded}
         activeTab={activeIntelligenceTab}
         draftId={activeDraftId}
+        complaintId={committedComplaintId}
         batchNumber={workspaceState.draft.fields.batchLotNumber.value}
         timeline={timeline}
+        duplicateAnalysis={duplicateAnalysis}
+        investigationPlaybook={investigationPlaybook}
+        onDuplicateAnalysisComplete={onDuplicateAnalysisComplete}
+        onInvestigationPlaybookComplete={onInvestigationPlaybookComplete}
         onExpandedChange={onIntelligenceDockExpandedChange}
         onActiveTabChange={onActiveIntelligenceTabChange}
       />

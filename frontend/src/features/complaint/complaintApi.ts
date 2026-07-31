@@ -6,6 +6,15 @@ import type {
   ContainmentSimulationResponse
 } from "../batchImpact/batchImpactTypes";
 import type {
+  DuplicateAnalysisResult,
+  InvestigationPlaybookResult
+} from "../investigationSupport/investigationSupportTypes";
+import type { InspectionBrief } from "../reports/inspectionBriefTypes";
+import type {
+  QualityWarRoomRunResponse,
+  QualityWarRoomRunStartedResponse
+} from "../qualityWarRoom/qualityWarRoomTypes";
+import type {
   ComplaintDraftResponse,
   ComplaintDraftStatusResponse,
   ComplaintAttachmentStatusResponse,
@@ -83,7 +92,10 @@ export const complaintApi = createApi({
     "ComplaintEvidence",
     "ComplaintTimeline",
     "ComplaintLedger",
-    "BatchImpact"
+    "BatchImpact",
+    "QualityWarRoom",
+    "InvestigationSupport",
+    "InspectionBrief"
   ],
   endpoints: (builder) => ({
     createComplaintDraft: builder.mutation<ComplaintDraftResponse, CreateComplaintDraftRequest>({
@@ -233,6 +245,12 @@ export const complaintApi = createApi({
         { type: "ComplaintLedger", id: `${complaintId}-timeline` }
       ]
     }),
+    getInspectionBrief: builder.query<InspectionBrief, string>({
+      query: (complaintId) => `/complaints/${complaintId}/inspection-brief?format=json`,
+      providesTags: (_result, _error, complaintId) => [
+        { type: "InspectionBrief", id: complaintId }
+      ]
+    }),
     runBatchImpact: builder.mutation<BatchImpactResponse, { draftId: string; createdBy?: string }>({
       query: ({ draftId, createdBy }) => ({
         url: `/complaint-drafts/${draftId}/batch-impact`,
@@ -250,6 +268,49 @@ export const complaintApi = createApi({
         method: "POST",
         body
       })
+    }),
+    startQualityWarRoomRun: builder.mutation<
+      QualityWarRoomRunStartedResponse,
+      { draftId: string; createdBy?: string }
+    >({
+      query: ({ draftId, createdBy }) => ({
+        url: `/complaint-drafts/${draftId}/quality-war-room/runs`,
+        method: "POST",
+        body: { created_by: createdBy ?? "Demo User" }
+      }),
+      invalidatesTags: (_result, _error, { draftId }) => [{ type: "QualityWarRoom", id: draftId }]
+    }),
+    getQualityWarRoomRuns: builder.query<QualityWarRoomRunResponse[], string>({
+      query: (draftId) => `/complaint-drafts/${draftId}/quality-war-room/runs`,
+      providesTags: (_result, _error, draftId) => [{ type: "QualityWarRoom", id: draftId }]
+    }),
+    getQualityWarRoomRun: builder.query<
+      QualityWarRoomRunResponse,
+      { draftId: string; runId: string }
+    >({
+      query: ({ draftId, runId }) => `/complaint-drafts/${draftId}/quality-war-room/runs/${runId}`,
+      providesTags: (_result, _error, { draftId, runId }) => [
+        { type: "QualityWarRoom", id: `${draftId}-${runId}` }
+      ]
+    }),
+    runDuplicateAnalysis: builder.mutation<DuplicateAnalysisResult, { draftId: string; createdBy?: string }>({
+      query: ({ draftId, createdBy }) => ({
+        url: `/complaint-drafts/${draftId}/duplicate-analysis`,
+        method: "POST",
+        body: { created_by: createdBy ?? "Demo User" }
+      }),
+      invalidatesTags: (_result, _error, { draftId }) => [{ type: "InvestigationSupport", id: draftId }]
+    }),
+    runInvestigationPlaybook: builder.mutation<
+      InvestigationPlaybookResult,
+      { draftId: string; createdBy?: string }
+    >({
+      query: ({ draftId, createdBy }) => ({
+        url: `/complaint-drafts/${draftId}/investigation-playbook`,
+        method: "POST",
+        body: { created_by: createdBy ?? "Demo User" }
+      }),
+      invalidatesTags: (_result, _error, { draftId }) => [{ type: "InvestigationSupport", id: draftId }]
     })
   })
 });
@@ -266,8 +327,14 @@ export const {
   useGetComplaintQuery,
   useGetComplaintVersionsQuery,
   useGetComplaintLedgerTimelineQuery,
+  useGetInspectionBriefQuery,
   useRunBatchImpactMutation,
   useSimulateBatchImpactMutation,
+  useStartQualityWarRoomRunMutation,
+  useGetQualityWarRoomRunsQuery,
+  useGetQualityWarRoomRunQuery,
+  useRunDuplicateAnalysisMutation,
+  useRunInvestigationPlaybookMutation,
   useGetComplaintMessagesQuery,
   useResetComplaintDraftMutation,
   useSaveComplaintDraftMutation,
