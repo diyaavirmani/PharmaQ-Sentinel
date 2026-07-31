@@ -1,10 +1,9 @@
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
-from sqlalchemy.engine import make_url
 
 from alembic import context
-from app.core.config import get_settings
+from app.core.config import get_settings, redact_database_url
 from app.models import Base
 
 config = context.config
@@ -20,7 +19,7 @@ def get_url() -> str:
 
 
 def masked_url(url: str) -> str:
-    return make_url(url).render_as_string(hide_password=True)
+    return redact_database_url(url)
 
 
 def run_migrations_offline() -> None:

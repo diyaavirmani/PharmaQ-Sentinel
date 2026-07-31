@@ -1,8 +1,46 @@
 from functools import lru_cache
 from typing import Annotated
 
-from pydantic import Field, SecretStr, computed_field, field_validator
+from pydantic import (
+    AliasChoices,
+    Field,
+    SecretStr,
+    ValidationInfo,
+    computed_field,
+    field_validator,
+)
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+DEFAULT_DATABASE_URL = (
+    "mysql+pymysql://pharmaq_user:replace_with_local_password@127.0.0.1:3306/"
+    "pharmaq_sentinel?charset=utf8mb4"
+)
+DEFAULT_TEST_DATABASE_URL = (
+    "mysql+pymysql://pharmaq_test_user:replace_with_test_password@127.0.0.1:3306/"
+    "pharmaq_sentinel_test?charset=utf8mb4"
+)
+
+
+def normalise_mysql_sqlalchemy_url(url: str) -> str:
+    stripped = url.strip()
+    if stripped.startswith("mysql://"):
+        return stripped.replace("mysql://", "mysql+pymysql://", 1)
+    return stripped
+
+
+def redact_database_url(url: str) -> str:
+    normalised = normalise_mysql_sqlalchemy_url(url)
+    if "@" not in normalised:
+        return normalised
+
+    scheme_separator = "://"
+    if scheme_separator not in normalised:
+        return "<redacted-database-url>"
+
+    scheme, remainder = normalised.split(scheme_separator, 1)
+    credentials, host_part = remainder.split("@", 1)
+    username = credentials.split(":", 1)[0]
+    return f"{scheme}{scheme_separator}{username}:***@{host_part}"
 
 
 class Settings(BaseSettings):
@@ -37,17 +75,13 @@ class Settings(BaseSettings):
     )
 
     database_url: SecretStr = Field(
-        default=SecretStr(
-            "mysql+pymysql://pharmaq_user:replace_with_local_password@127.0.0.1:3306/pharmaq_sentinel?charset=utf8mb4"
-        ),
-        validation_alias="DATABASE_URL",
+        default=SecretStr(DEFAULT_DATABASE_URL),
+        validation_alias=AliasChoices("DATABASE_URL", "MYSQL_URL"),
         repr=False,
         exclude=True,
     )
     test_database_url: SecretStr = Field(
-        default=SecretStr(
-            "mysql+pymysql://pharmaq_test_user:replace_with_test_password@127.0.0.1:3306/pharmaq_sentinel_test?charset=utf8mb4"
-        ),
+        default=SecretStr(DEFAULT_TEST_DATABASE_URL),
         validation_alias="TEST_DATABASE_URL",
         repr=False,
         exclude=True,
@@ -126,14 +160,23 @@ class Settings(BaseSettings):
             raise ValueError("DEMO_AI_MODE must be live or deterministic")
         return normalized
 
+    @field_validator("database_url", "test_database_url", mode="before")
+    @classmethod
+    def normalise_database_url(cls, value: SecretStr | str) -> SecretStr | str:
+        if isinstance(value, SecretStr):
+            return SecretStr(normalise_mysql_sqlalchemy_url(value.get_secret_value()))
+        if isinstance(value, str):
+            return normalise_mysql_sqlalchemy_url(value)
+        return value
+
     @field_validator("database_url", "test_database_url")
     @classmethod
-    def validate_mysql_url(cls, value: SecretStr) -> SecretStr:
+    def validate_mysql_url(cls, value: SecretStr, info: ValidationInfo) -> SecretStr:
         url = value.get_secret_value()
         if not url.startswith("mysql+pymysql://"):
             raise ValueError("Database URL must use mysql+pymysql")
 
-        if "charset=utf8mb4" not in url:
+        if info.field_name == "test_database_url" and "charset=utf8mb4" not in url:
             raise ValueError("Database URL must include charset=utf8mb4")
 
         return value
