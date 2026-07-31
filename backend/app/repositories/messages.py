@@ -38,12 +38,15 @@ class ComplaintMessageRepository(BaseRepository[ComplaintMessage]):
         self,
         draft_id: str,
         pagination: Pagination | None = None,
+        before: datetime | None = None,
     ) -> list[ComplaintMessage]:
         statement = (
             select(ComplaintMessage)
             .where(ComplaintMessage.draft_id == draft_id)
             .order_by(ComplaintMessage.created_at.asc())
         )
+        if before is not None:
+            statement = statement.where(ComplaintMessage.created_at < before)
         if pagination is not None:
             statement = apply_pagination(statement, pagination)
         return list(self.db.scalars(statement).all())

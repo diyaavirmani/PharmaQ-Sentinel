@@ -19,6 +19,8 @@ COMPLAINT_TEXT_FIELDS = (
     "product_strength_grade",
     "dosage_form",
     "batch_lot_number",
+    "manufacturing_date_text",
+    "expiry_retest_date_text",
     "quantity_unit",
     "complaint_type",
     "detailed_description",
@@ -63,7 +65,9 @@ class ComplaintDraftCreate(BaseModel):
     dosage_form: str | None = Field(default=None, max_length=100)
     batch_lot_number: str | None = Field(default=None, max_length=150)
     manufacturing_date: date | None = None
+    manufacturing_date_text: str | None = Field(default=None, max_length=100)
     expiry_retest_date: date | None = None
+    expiry_retest_date_text: str | None = Field(default=None, max_length=100)
     quantity_affected: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=3)
     quantity_unit: str | None = Field(default=None, max_length=50)
     complaint_type: str | None = Field(default=None, max_length=150)
@@ -95,9 +99,12 @@ class ComplaintDraftCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_date_order(self) -> ComplaintDraftCreate:
-        if self.manufacturing_date and self.expiry_retest_date:
-            if self.expiry_retest_date < self.manufacturing_date:
-                raise ValueError("expiry_retest_date cannot be before manufacturing_date")
+        if (
+            self.manufacturing_date
+            and self.expiry_retest_date
+            and self.expiry_retest_date < self.manufacturing_date
+        ):
+            raise ValueError("expiry_retest_date cannot be before manufacturing_date")
         return self
 
 
@@ -126,7 +133,9 @@ class ComplaintDraftPatchFields(BaseModel):
     dosage_form: str | None = Field(default=None, max_length=100)
     batch_lot_number: str | None = Field(default=None, max_length=150)
     manufacturing_date: date | None = None
+    manufacturing_date_text: str | None = Field(default=None, max_length=100)
     expiry_retest_date: date | None = None
+    expiry_retest_date_text: str | None = Field(default=None, max_length=100)
     quantity_affected: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=3)
     quantity_unit: str | None = Field(default=None, max_length=50)
     complaint_type: str | None = Field(default=None, max_length=150)
@@ -159,9 +168,12 @@ class ComplaintDraftPatchFields(BaseModel):
     def validate_patch(self) -> ComplaintDraftPatchFields:
         if not self.model_fields_set:
             raise ValueError("patch must include at least one complaint field")
-        if self.manufacturing_date and self.expiry_retest_date:
-            if self.expiry_retest_date < self.manufacturing_date:
-                raise ValueError("expiry_retest_date cannot be before manufacturing_date")
+        if (
+            self.manufacturing_date
+            and self.expiry_retest_date
+            and self.expiry_retest_date < self.manufacturing_date
+        ):
+            raise ValueError("expiry_retest_date cannot be before manufacturing_date")
         return self
 
 
@@ -189,6 +201,21 @@ class ComplaintDraftStatusResponse(BaseModel):
     is_extraction_active: bool
 
 
+class SaveComplaintRequest(BaseModel):
+    reviewed_by: str = Field(min_length=1, max_length=150)
+    review_meaning: str = Field(min_length=1, max_length=500)
+    missing_information_acknowledged: bool = False
+    change_reason: str = Field(min_length=1, max_length=500)
+    idempotency_key: str = Field(min_length=8, max_length=150)
+
+    @field_validator("reviewed_by", "review_meaning", "change_reason", "idempotency_key", mode="before")
+    @classmethod
+    def normalise_required_text(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip()
+        return value
+
+
 class ComplaintDraftResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -206,7 +233,9 @@ class ComplaintDraftResponse(BaseModel):
     dosage_form: str | None = None
     batch_lot_number: str | None = None
     manufacturing_date: date | None = None
+    manufacturing_date_text: str | None = None
     expiry_retest_date: date | None = None
+    expiry_retest_date_text: str | None = None
     quantity_affected: DecimalString | None = None
     quantity_unit: str | None = None
     complaint_type: str | None = None
@@ -247,6 +276,63 @@ class ComplaintDraftResponse(BaseModel):
     @property
     def is_extraction_active(self) -> bool:
         return False
+
+
+class ComplaintResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    complaint_number: str
+    current_version_number: int
+    status: str
+    committed_from_draft_id: str | None = None
+    committed_at: UTCDateTime
+    committed_by: str
+    review_meaning: str | None = None
+    missing_information_acknowledged: bool
+    unresolved_missing_information: dict[str, Any] | None = None
+    latest_risk_assessment_id: str | None = None
+    complaint_source: str | None = None
+    customer_name: str | None = None
+    customer_contact: str | None = None
+    country_market: str | None = None
+    product_type: str | None = None
+    product_name: str | None = None
+    product_strength_grade: str | None = None
+    dosage_form: str | None = None
+    batch_lot_number: str | None = None
+    manufacturing_date: date | None = None
+    manufacturing_date_text: str | None = None
+    expiry_retest_date: date | None = None
+    expiry_retest_date_text: str | None = None
+    quantity_affected: DecimalString | None = None
+    quantity_unit: str | None = None
+    complaint_type: str | None = None
+    complaint_date: date | None = None
+    detailed_description: str | None = None
+    defect_observed_date: date | None = None
+    sample_available: bool | None = None
+    patient_consumed_product: bool | None = None
+    adverse_event_signal: bool | None = None
+    counterfeit_signal: bool | None = None
+    storage_conditions: str | None = None
+    suggested_severity: str | None = None
+    suggested_priority: str | None = None
+    safety_route: str | None = None
+    risk_rationale: str | None = None
+    potential_hazard: str | None = None
+    suggested_next_action: str | None = None
+    risk_confidence: DecimalString | None = None
+    missing_fields: dict[str, Any] | None = None
+    created_at: UTCDateTime
+    updated_at: UTCDateTime
+
+
+class ComplaintLedgerListResponse(BaseModel):
+    items: list[ComplaintResponse]
+    limit: int
+    offset: int
+    next_offset: int | None = None
 
 
 class ComplaintVersionResponse(BaseModel):
@@ -294,6 +380,31 @@ class ComplaintAttachmentResponse(BaseModel):
     file_size: int
     sha256_checksum: str
     extraction_status: str
+    extraction_stage: str
+    extraction_progress: int
     extraction_error: str | None = None
     created_at: UTCDateTime
+    completed_at: UTCDateTime | None = None
     uploaded_by: str | None = None
+
+
+class ComplaintAttachmentUploadResponse(BaseModel):
+    attachment_id: str
+    original_filename: str
+    status: str
+    progress_percentage: int
+    current_stage: str
+    duplicate: bool = False
+    changed_fields: list[str] = Field(default_factory=list)
+    created_at: UTCDateTime
+
+
+class ComplaintAttachmentStatusResponse(BaseModel):
+    attachment_id: str
+    original_filename: str
+    status: str
+    progress_percentage: int
+    current_stage: str
+    safe_error: str | None = None
+    created_at: UTCDateTime
+    completed_at: UTCDateTime | None = None

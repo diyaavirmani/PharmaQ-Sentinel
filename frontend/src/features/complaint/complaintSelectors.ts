@@ -9,7 +9,26 @@ export const selectActiveDraftId = (state: RootState) => selectComplaintState(st
 
 export const selectIsComplaintFormEmpty = (state: RootState) => isDraftEmpty(selectActiveComplaint(state));
 
-export const selectShouldEnableSaveComplaint = (_state: RootState) => false;
+export const selectShouldEnableSaveComplaint = (state: RootState) => {
+  const complaintState = selectComplaintState(state);
+  const draft = complaintState.complaintDraft;
+  if (!draft || draft.is_locked || draft.is_committed) {
+    return false;
+  }
+  if (complaintState.isCreatingDraft || complaintState.isLoadingDraft || complaintState.isSavingComplaint) {
+    return false;
+  }
+  if (complaintState.extractionStage === "uploading" || complaintState.extractionStage === "extracting") {
+    return false;
+  }
+  if (complaintState.draftStatus?.is_extraction_active || complaintState.hasCriticalEvidenceConflict) {
+    return false;
+  }
+  const hasDescription = Boolean(draft.detailed_description?.trim());
+  const hasProductIdentification = Boolean(draft.product_name?.trim() || draft.batch_lot_number?.trim());
+  const hasRiskAssessment = Boolean(draft.suggested_severity && draft.risk_rationale);
+  return hasDescription && hasProductIdentification && hasRiskAssessment;
+};
 
 export const selectRecentlyUpdatedFields = (state: RootState) =>
   selectComplaintState(state).recentlyUpdatedFields;

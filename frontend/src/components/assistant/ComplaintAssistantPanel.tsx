@@ -10,14 +10,20 @@ interface ComplaintAssistantPanelProps {
   extraction: ExtractionProgressState;
   messages: AssistantMessageState[];
   onSendLocalMessage: (content: string) => void;
+  onUploadDocument: (file: File) => void;
   isComposerLocked?: boolean;
+  selectedUploadFilename?: string | null;
+  uploadError?: string | null;
 }
 
 export function ComplaintAssistantPanel({
   extraction,
   messages,
   onSendLocalMessage,
-  isComposerLocked = false
+  onUploadDocument,
+  isComposerLocked = false,
+  selectedUploadFilename = null,
+  uploadError = null
 }: ComplaintAssistantPanelProps) {
   return (
     <aside
@@ -33,7 +39,16 @@ export function ComplaintAssistantPanel({
       </header>
 
       <div className="assistant-panel-content">
-        <UploadDropzone />
+        <UploadDropzone
+          onUploadDocument={onUploadDocument}
+          selectedFilename={selectedUploadFilename}
+          isDisabled={isComposerLocked}
+        />
+        {uploadError ? (
+          <div className="complaint-panel-banner complaint-panel-banner--error" role="alert">
+            {uploadError}
+          </div>
+        ) : null}
 
         <div className="assistant-or" aria-hidden="true">
           OR

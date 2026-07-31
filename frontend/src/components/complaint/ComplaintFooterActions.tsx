@@ -1,9 +1,18 @@
 interface ComplaintFooterActionsProps {
   onReset: () => void;
+  onSave: () => void;
   isResetting?: boolean;
+  isSaving?: boolean;
+  canSave?: boolean;
 }
 
-export function ComplaintFooterActions({ onReset, isResetting = false }: ComplaintFooterActionsProps) {
+export function ComplaintFooterActions({
+  onReset,
+  onSave,
+  isResetting = false,
+  isSaving = false,
+  canSave = false
+}: ComplaintFooterActionsProps) {
   return (
     <footer className="complaint-footer-actions">
       <button
@@ -19,8 +28,9 @@ export function ComplaintFooterActions({ onReset, isResetting = false }: Complai
         type="button"
         className="button button--primary"
         data-testid="complaint-save-button"
-        disabled
-        aria-disabled="true"
+        disabled={!canSave || isSaving}
+        aria-disabled={!canSave || isSaving}
+        onClick={onSave}
       >
         Save Complaint
       </button>

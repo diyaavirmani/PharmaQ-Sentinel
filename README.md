@@ -1,6 +1,6 @@
 # PharmaQ Sentinel
 
-PharmaQ Sentinel is a local full-stack foundation for an AI-assisted pharmaceutical complaint intelligence application. The current codebase includes infrastructure, health checks, a MySQL database layer, deterministic fictional seed data, and read-only reference endpoints. It intentionally contains no complaint chatbot workflow, document extraction, LangGraph orchestration, Batch Blast-Radius, Quality War Room, or AI API calls yet.
+PharmaQ Sentinel is a local full-stack foundation for an AI-assisted pharmaceutical complaint intelligence application. The current codebase includes infrastructure, health checks, a MySQL database layer, deterministic fictional seed data, read-only reference endpoints, the locked Complaint Workspace, assistant-mediated text complaint logging/editing, and document extraction for PDF, DOCX, TXT, and EML uploads. Batch Blast-Radius and Quality War Room modules are intentionally not implemented yet.
 
 ## Mandatory Stack
 
@@ -46,6 +46,8 @@ Copy-Item .env.example .env
 Edit `.env` with local MySQL credentials. Do not commit `.env`.
 
 The frontend may only read variables prefixed with `VITE_`. Do not create frontend variables for AI provider keys, database URLs, or MySQL credentials.
+
+OpenAI setup is backend-only and documented in [docs/OPENAI_INTEGRATION.md](C:/Users/diyav/OneDrive/Documents/assignment/docs/OPENAI_INTEGRATION.md). The API starts without an OpenAI key; `/api/v1/ai/status` reports unavailable until `OPENAI_API_KEY` and `OPENAI_MODEL` are configured.
 
 ## Backend
 
@@ -102,6 +104,23 @@ Reference endpoints:
 - `http://127.0.0.1:8000/api/v1/reference/batches/BMX240602`
 - `http://127.0.0.1:8000/api/v1/reference/seed-status`
 - `http://127.0.0.1:8000/api/v1/reference/historical-complaints`
+
+AI status endpoint:
+
+- `http://127.0.0.1:8000/api/v1/ai/status`
+
+Complaint document extraction endpoints:
+
+- `POST http://127.0.0.1:8000/api/v1/complaint-drafts/{draft_id}/attachments`
+- `GET http://127.0.0.1:8000/api/v1/complaint-drafts/{draft_id}/attachments/{attachment_id}/status`
+
+Generate fictional demo upload documents:
+
+```powershell
+cd backend
+.\.venv\Scripts\Activate.ps1
+python -m app.utilities.generate_demo_documents
+```
 
 ## Frontend
 

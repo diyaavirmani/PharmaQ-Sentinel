@@ -1,10 +1,12 @@
 from app.models.base import Base
 from app.models.complaint import (
+    AgentRun,
     AuditEvent,
     Complaint,
     ComplaintAttachment,
     ComplaintDraft,
     ComplaintMessage,
+    ComplaintNumberSequence,
     ComplaintVersion,
     FieldEvidence,
     RiskAssessmentVersion,
@@ -39,6 +41,7 @@ from app.models.reference import (
 __all__ = [
     "CAPA",
     "ActorType",
+    "AgentRun",
     "AuditEvent",
     "Base",
     "Batch",
@@ -46,6 +49,7 @@ __all__ = [
     "ComplaintAttachment",
     "ComplaintDraft",
     "ComplaintMessage",
+    "ComplaintNumberSequence",
     "ComplaintStatus",
     "ComplaintVersion",
     "Deviation",

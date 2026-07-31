@@ -1,3 +1,4 @@
+from app.repositories.agent_runs import AgentRunRepository
 from app.repositories.attachments import ComplaintAttachmentRepository
 from app.repositories.audit_events import AuditEventRepository
 from app.repositories.base import Pagination, RepositoryNotFoundError
@@ -15,6 +16,7 @@ from app.repositories.reference import (
 from app.repositories.risk_assessments import RiskAssessmentVersionRepository
 
 __all__ = [
+    "AgentRunRepository",
     "AuditEventRepository",
     "BatchRepository",
     "ComplaintAttachmentRepository",

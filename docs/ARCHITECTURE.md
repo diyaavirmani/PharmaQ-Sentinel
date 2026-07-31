@@ -60,6 +60,30 @@ LangGraph manages AI workflows such as complaint extraction, correction interpre
 
 LangGraph conversation state must not be treated as the durable complaint record. It is orchestration state for multi-step AI workflows.
 
+The complaint assistant graph loads durable draft and conversation context from MySQL for each request, builds transient graph state, runs the required route, and persists messages plus run metadata back to MySQL. Conversation continuity comes from `complaint_messages`; the project does not depend on a PostgreSQL, SQLite, Redis, or unsupported MySQL LangGraph checkpointer.
+
+```mermaid
+flowchart TD
+    START(["START"]) --> load_context["load_context"]
+    load_context --> classify_intent["classify_intent"]
+    classify_intent --> route{"Intent"}
+    route -->|"LOG_COMPLAINT"| execute_tool["execute_tool"]
+    route -->|"EDIT_COMPLAINT"| execute_tool
+    route -->|"EXTRACT_DOCUMENT"| execute_tool
+    execute_tool --> validate_patch["validate_patch"]
+    validate_patch --> merge_patch["merge_patch"]
+    merge_patch --> check_completeness["check_completeness"]
+    check_completeness --> assess_initial_risk["assess_initial_risk"]
+    assess_initial_risk --> persist_result["persist_result"]
+    route -->|"ASK_QUESTION"| handle_question["handle_question"]
+    handle_question --> persist_result
+    route -->|"REQUEST_SUMMARY or unavailable advanced tool"| execute_tool
+    route -->|"UNKNOWN"| handle_unknown["handle_unknown"]
+    handle_unknown --> persist_result
+    persist_result --> create_response["create_response"]
+    create_response --> END(["END"])
+```
+
 ### OpenAI Model Gateway
 
 The OpenAI model gateway will be the backend-only integration layer for OpenAI in later phases. It owns provider configuration, model selection, request execution, response metadata, and error normalization.

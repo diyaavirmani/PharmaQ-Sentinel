@@ -11,8 +11,11 @@ from app.schemas.complaints import (
     ComplaintDraftDevelopmentPatchRequest,
     ComplaintDraftResponse,
     ComplaintDraftStatusResponse,
+    ComplaintResponse,
+    SaveComplaintRequest,
 )
 from app.services import complaint_drafts as draft_service
+from app.services.complaint_save import save_complaint
 
 router = APIRouter(prefix="/complaint-drafts", tags=["complaint-drafts"])
 
@@ -91,6 +94,22 @@ def development_patch_complaint_draft(
         db.refresh(draft)
         response.headers["X-PharmaQ-Development-Only"] = "true"
         return ComplaintDraftResponse.model_validate(draft)
+    except Exception:
+        db.rollback()
+        raise
+
+
+@router.post("/{draft_id}/save", response_model=ComplaintResponse)
+def save_complaint_draft(
+    draft_id: str,
+    request: SaveComplaintRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> ComplaintResponse:
+    try:
+        complaint = save_complaint(db, draft_id=draft_id, request=request)
+        _commit_or_rollback(db)
+        db.refresh(complaint)
+        return ComplaintResponse.model_validate(complaint)
     except Exception:
         db.rollback()
         raise

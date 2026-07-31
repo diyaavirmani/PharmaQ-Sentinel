@@ -19,6 +19,7 @@ export type ComplaintFieldKey =
 
 export interface ComplaintFieldState {
   value: string | null;
+  fieldName?: string;
   unitSuffix?: string;
   evidenceAvailable?: boolean;
   recentlyUpdated?: boolean;
@@ -28,8 +29,10 @@ export interface ComplaintFieldState {
 export type ComplaintDraftFields = Record<ComplaintFieldKey, ComplaintFieldState>;
 
 export interface ComplaintDraftState {
-  statusLabel: "Pending Triage";
+  statusLabel: "Pending Triage" | "Committed";
   fields: ComplaintDraftFields;
+  riskDetails: RiskDetailsState | null;
+  completeness: CompletenessState | null;
 }
 
 export interface ExtractionProgressState {
@@ -44,6 +47,26 @@ export interface AssistantMessageState {
   id: string;
   role: AssistantMessageRole;
   content: string;
+}
+
+export interface RiskDetailsState {
+  confidence: string | null;
+  oneLineRationale: string | null;
+  routeChips: string[];
+  requiresQaConfirmation: boolean;
+  potentialHazards: string[];
+  supportingEvidence: string[];
+  contradictingEvidence: string[];
+  recommendedActions: string[];
+  limitations: string[];
+  criticalSignals: string[];
+}
+
+export interface CompletenessState {
+  percentage: number;
+  missingItems: string[];
+  followUpQuestions: string[];
+  canBeginTriage: boolean;
 }
 
 export interface ComplaintWorkspaceState {

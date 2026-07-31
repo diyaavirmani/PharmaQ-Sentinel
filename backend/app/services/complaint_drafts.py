@@ -27,7 +27,9 @@ MUTABLE_COMPLAINT_FIELDS = (
     "dosage_form",
     "batch_lot_number",
     "manufacturing_date",
+    "manufacturing_date_text",
     "expiry_retest_date",
+    "expiry_retest_date_text",
     "quantity_affected",
     "quantity_unit",
     "complaint_type",
@@ -202,12 +204,15 @@ def apply_development_patch(
     }
     manufacturing_date = patch_values.get("manufacturing_date", draft.manufacturing_date)
     expiry_retest_date = patch_values.get("expiry_retest_date", draft.expiry_retest_date)
-    if manufacturing_date is not None and expiry_retest_date is not None:
-        if expiry_retest_date < manufacturing_date:
-            raise PharmaQSentinelError(
-                "expiry_retest_date cannot be before manufacturing_date",
-                status_code=422,
-            )
+    if (
+        manufacturing_date is not None
+        and expiry_retest_date is not None
+        and expiry_retest_date < manufacturing_date
+    ):
+        raise PharmaQSentinelError(
+            "expiry_retest_date cannot be before manufacturing_date",
+            status_code=422,
+        )
 
     audit_repository = AuditEventRepository(db)
     changed_fields: list[str] = []

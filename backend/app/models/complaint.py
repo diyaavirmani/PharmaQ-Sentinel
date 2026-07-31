@@ -49,6 +49,8 @@ OPTIONAL_STRING_FIELDS = {
     "product_strength_grade",
     "dosage_form",
     "batch_lot_number",
+    "manufacturing_date_text",
+    "expiry_retest_date_text",
     "quantity_unit",
     "complaint_type",
     "detailed_description",
@@ -74,7 +76,9 @@ class ComplaintFieldMixin:
     dosage_form: Mapped[str | None] = mapped_column(String(100), nullable=True)
     batch_lot_number: Mapped[str | None] = mapped_column(String(150), nullable=True)
     manufacturing_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    manufacturing_date_text: Mapped[str | None] = mapped_column(String(100), nullable=True)
     expiry_retest_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    expiry_retest_date_text: Mapped[str | None] = mapped_column(String(100), nullable=True)
     quantity_affected: Mapped[Decimal | None] = mapped_column(Numeric(14, 3), nullable=True)
     quantity_unit: Mapped[str | None] = mapped_column(String(50), nullable=True)
     complaint_type: Mapped[str | None] = mapped_column(String(150), nullable=True)
@@ -119,6 +123,7 @@ class ComplaintDraft(UUIDPrimaryKeyMixin, TimestampMixin, CreatedByMixin, Compla
     field_evidence: Mapped[list[FieldEvidence]] = relationship(back_populates="draft")
     risk_assessments: Mapped[list[RiskAssessmentVersion]] = relationship(back_populates="draft")
     audit_events: Mapped[list[AuditEvent]] = relationship(back_populates="draft")
+    agent_runs: Mapped[list[AgentRun]] = relationship(back_populates="draft")
     committed_complaints: Mapped[list[Complaint]] = relationship(back_populates="committed_from_draft")
 
     @validates(*OPTIONAL_STRING_FIELDS)
@@ -144,9 +149,12 @@ class ComplaintDraft(UUIDPrimaryKeyMixin, TimestampMixin, CreatedByMixin, Compla
     def _validate_date_order(self, key: str, value: date | None) -> date | None:
         manufacturing_date = value if key == "manufacturing_date" else self.manufacturing_date
         expiry_retest_date = value if key == "expiry_retest_date" else self.expiry_retest_date
-        if manufacturing_date is not None and expiry_retest_date is not None:
-            if expiry_retest_date < manufacturing_date:
-                raise ValueError("expiry_retest_date cannot be before manufacturing_date")
+        if (
+            manufacturing_date is not None
+            and expiry_retest_date is not None
+            and expiry_retest_date < manufacturing_date
+        ):
+            raise ValueError("expiry_retest_date cannot be before manufacturing_date")
         return value
 
 
@@ -154,19 +162,35 @@ class Complaint(UUIDPrimaryKeyMixin, TimestampMixin, ComplaintFieldMixin, Base):
     __tablename__ = "complaints"
     __table_args__ = (
         UniqueConstraint("complaint_number", name="uq_complaints_complaint_number"),
+        UniqueConstraint("save_idempotency_key", name="uq_complaints_save_idempotency_key"),
         CheckConstraint("current_version_number > 0", name="current_version_number_positive"),
         CheckConstraint("quantity_affected IS NULL OR quantity_affected >= 0", name="quantity_affected_non_negative"),
         CheckConstraint("risk_confidence IS NULL OR (risk_confidence >= 0 AND risk_confidence <= 1)", name="risk_confidence_between_zero_and_one"),
         Index("ix_complaints_complaint_number", "complaint_number"),
+        Index("ix_complaints_save_idempotency_key", "save_idempotency_key"),
         Index("ix_complaints_status", "status"),
         Index("ix_complaints_batch_lot_number", "batch_lot_number"),
         Index("ix_complaints_product_name", "product_name"),
+        Index("ix_complaints_customer_name", "customer_name"),
+        Index("ix_complaints_complaint_type", "complaint_type"),
+        Index("ix_complaints_suggested_severity", "suggested_severity"),
+        Index("ix_complaints_complaint_date", "complaint_date"),
+        Index("ix_complaints_committed_at", "committed_at"),
         MYSQL_TABLE_KWARGS,
     )
 
     complaint_number: Mapped[str] = mapped_column(String(40), nullable=False)
     current_version_number: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     status: Mapped[str] = mapped_column(String(40), default=ComplaintStatus.COMMITTED.value, nullable=False)
+    save_idempotency_key: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    review_meaning: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    missing_information_acknowledged: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    unresolved_missing_information: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    latest_risk_assessment_id: Mapped[str | None] = mapped_column(
+        CHAR(36),
+        ForeignKey("risk_assessment_versions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     committed_from_draft_id: Mapped[str | None] = mapped_column(
         CHAR(36),
         ForeignKey("complaint_drafts.id", ondelete="SET NULL"),
@@ -176,6 +200,7 @@ class Complaint(UUIDPrimaryKeyMixin, TimestampMixin, ComplaintFieldMixin, Base):
     committed_by: Mapped[str] = mapped_column(String(150), nullable=False)
 
     committed_from_draft: Mapped[ComplaintDraft | None] = relationship(back_populates="committed_complaints")
+    latest_risk_assessment: Mapped[RiskAssessmentVersion | None] = relationship()
     versions: Mapped[list[ComplaintVersion]] = relationship(back_populates="complaint")
     audit_events: Mapped[list[AuditEvent]] = relationship(back_populates="complaint")
 
@@ -195,10 +220,25 @@ class Complaint(UUIDPrimaryKeyMixin, TimestampMixin, ComplaintFieldMixin, Base):
     def _validate_date_order(self, key: str, value: date | None) -> date | None:
         manufacturing_date = value if key == "manufacturing_date" else self.manufacturing_date
         expiry_retest_date = value if key == "expiry_retest_date" else self.expiry_retest_date
-        if manufacturing_date is not None and expiry_retest_date is not None:
-            if expiry_retest_date < manufacturing_date:
-                raise ValueError("expiry_retest_date cannot be before manufacturing_date")
+        if (
+            manufacturing_date is not None
+            and expiry_retest_date is not None
+            and expiry_retest_date < manufacturing_date
+        ):
+            raise ValueError("expiry_retest_date cannot be before manufacturing_date")
         return value
+
+
+class ComplaintNumberSequence(Base):
+    __tablename__ = "complaint_number_sequences"
+    __table_args__ = (
+        CheckConstraint("next_number > 0", name="next_number_positive"),
+        MYSQL_TABLE_KWARGS,
+    )
+
+    year: Mapped[int] = mapped_column(Integer, primary_key=True)
+    next_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=utc_now, nullable=False)
 
 
 class ComplaintVersion(UUIDPrimaryKeyMixin, Base):
@@ -276,13 +316,17 @@ class ComplaintAttachment(UUIDPrimaryKeyMixin, Base):
     sha256_checksum: Mapped[str] = mapped_column(CHAR(64), nullable=False)
     storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
     extracted_text: Mapped[str | None] = mapped_column(LONGTEXT, nullable=True)
+    extraction_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     extraction_status: Mapped[str] = mapped_column(
         String(40),
         default=ExtractionStatus.PENDING.value,
         nullable=False,
     )
+    extraction_stage: Mapped[str] = mapped_column(String(40), default="UPLOADING", nullable=False)
+    extraction_progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     extraction_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=utc_now, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DATETIME(fsp=6), nullable=True)
     uploaded_by: Mapped[str | None] = mapped_column(String(150), nullable=True)
 
     draft: Mapped[ComplaintDraft] = relationship(back_populates="attachments")
@@ -401,3 +445,37 @@ class AuditEvent(UUIDPrimaryKeyMixin, Base):
 
     draft: Mapped[ComplaintDraft | None] = relationship(back_populates="audit_events")
     complaint: Mapped[Complaint | None] = relationship(back_populates="audit_events")
+
+
+class AgentRun(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "agent_runs"
+    __table_args__ = (
+        Index("ix_agent_runs_draft_id", "draft_id"),
+        Index("ix_agent_runs_request_id", "request_id"),
+        Index("ix_agent_runs_intent", "intent"),
+        Index("ix_agent_runs_status", "status"),
+        Index("ix_agent_runs_started_at", "started_at"),
+        MYSQL_TABLE_KWARGS,
+    )
+
+    draft_id: Mapped[str] = mapped_column(
+        CHAR(36),
+        ForeignKey("complaint_drafts.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    request_id: Mapped[str] = mapped_column(String(150), nullable=False)
+    intent: Mapped[str] = mapped_column(String(50), nullable=False)
+    tool_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    provider: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    requested_model: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    actual_model: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    input_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    output_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    warnings_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    errors_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=utc_now, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DATETIME(fsp=6), nullable=True)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    draft: Mapped[ComplaintDraft] = relationship(back_populates="agent_runs")

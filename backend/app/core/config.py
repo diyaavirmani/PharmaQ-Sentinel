@@ -69,8 +69,25 @@ class Settings(BaseSettings):
         exclude=True,
     )
     openai_model: str = Field(default="", validation_alias="OPENAI_MODEL")
+    openai_context_model: str = Field(default="", validation_alias="OPENAI_CONTEXT_MODEL")
     openai_timeout_seconds: int = Field(default=60, validation_alias="OPENAI_TIMEOUT_SECONDS")
     openai_max_retries: int = Field(default=2, validation_alias="OPENAI_MAX_RETRIES")
+    openai_temperature: float = Field(default=0, ge=0, le=2, validation_alias="OPENAI_TEMPERATURE")
+    openai_max_output_tokens: int = Field(
+        default=3000,
+        ge=1,
+        le=100000,
+        validation_alias="OPENAI_MAX_OUTPUT_TOKENS",
+    )
+    openai_enable_live_tests: bool = Field(
+        default=False,
+        validation_alias="OPENAI_ENABLE_LIVE_TESTS",
+    )
+    openai_log_prompts: bool = Field(default=False, validation_alias="OPENAI_LOG_PROMPTS")
+    openai_enable_test_connection_endpoint: bool = Field(
+        default=False,
+        validation_alias="OPENAI_ENABLE_TEST_CONNECTION",
+    )
     enable_development_patch_endpoint: bool = Field(
         default=False,
         validation_alias="ENABLE_DEVELOPMENT_PATCH_ENDPOINT",
@@ -126,6 +143,10 @@ class Settings(BaseSettings):
             "backend_cors_origins": self.backend_cors_origins,
             "llm_provider": self.llm_provider,
             "openai_model_configured": bool(self.openai_model),
+            "openai_context_model_configured": bool(self.openai_context_model),
+            "openai_live_tests_enabled": self.openai_enable_live_tests,
+            "openai_prompt_logging_enabled": self.openai_log_prompts,
+            "openai_test_connection_endpoint_enabled": self.openai_enable_test_connection_endpoint,
             "development_patch_endpoint_enabled": self.enable_development_patch_endpoint,
             "upload_directory": self.upload_directory,
             "max_upload_size_mb": self.max_upload_size_mb,

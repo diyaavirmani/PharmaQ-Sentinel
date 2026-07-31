@@ -33,6 +33,7 @@ frontend/vite.config.js
 uploads/
 backend/uploads/
 backend/storage/uploads/
+backend/storage/demo_documents/
 *.log
 .DS_Store
 Thumbs.db

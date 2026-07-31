@@ -13,6 +13,7 @@ interface ReadOnlyFieldProps {
   evidenceAvailable?: boolean;
   recentlyUpdated?: boolean;
   isLoading?: boolean;
+  onViewEvidence?: () => void;
 }
 
 export function ReadOnlyField({
@@ -23,7 +24,8 @@ export function ReadOnlyField({
   multiline = false,
   evidenceAvailable = false,
   recentlyUpdated = false,
-  isLoading = false
+  isLoading = false,
+  onViewEvidence
 }: ReadOnlyFieldProps) {
   const displayValue = value ?? emptyFieldText;
   const fieldClassName = clsx("read-only-field", {
@@ -49,7 +51,12 @@ export function ReadOnlyField({
       <div className="read-only-field__label-row">
         <label htmlFor={id}>{label}</label>
         {value !== null && evidenceAvailable ? (
-          <button type="button" className="evidence-icon-button" aria-label={`View evidence for ${label}`}>
+          <button
+            type="button"
+            className="evidence-icon-button"
+            aria-label={`View evidence for ${label}`}
+            onClick={onViewEvidence}
+          >
             <FileSearch size={14} aria-hidden="true" />
           </button>
         ) : null}

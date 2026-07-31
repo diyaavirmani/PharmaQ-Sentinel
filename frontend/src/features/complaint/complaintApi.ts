@@ -3,8 +3,19 @@ import { getApiBaseUrl } from "../../services/apiClient";
 import type {
   ComplaintDraftResponse,
   ComplaintDraftStatusResponse,
+  ComplaintAttachmentStatusResponse,
+  ComplaintAttachmentUploadResponse,
+  ComplaintLedgerListResponse,
+  ComplaintMessageListResponse,
+  ComplaintResponse,
   CreateComplaintDraftRequest,
-  DevelopmentPatchRequest
+  DevelopmentPatchRequest,
+  FieldEvidenceDetailResponse,
+  FieldEvidenceListResponse,
+  SaveComplaintRequest,
+  SendComplaintMessageRequest,
+  SendComplaintMessageResponse,
+  TimelineListResponse
 } from "./complaintTypes";
 
 export interface ComplaintBaseQueryArgs {
@@ -32,8 +43,12 @@ const complaintBaseQuery: BaseQueryFn<
   };
 
   if (request.body !== undefined) {
-    headers.set("Content-Type", "application/json");
-    init.body = JSON.stringify(request.body);
+    if (request.body instanceof FormData) {
+      init.body = request.body;
+    } else {
+      headers.set("Content-Type", "application/json");
+      init.body = JSON.stringify(request.body);
+    }
   }
 
   try {
@@ -56,7 +71,14 @@ const complaintBaseQuery: BaseQueryFn<
 export const complaintApi = createApi({
   reducerPath: "complaintApi",
   baseQuery: complaintBaseQuery,
-  tagTypes: ["ComplaintDraft"],
+  tagTypes: [
+    "ComplaintDraft",
+    "ComplaintMessage",
+    "ComplaintAttachment",
+    "ComplaintEvidence",
+    "ComplaintTimeline",
+    "ComplaintLedger"
+  ],
   endpoints: (builder) => ({
     createComplaintDraft: builder.mutation<ComplaintDraftResponse, CreateComplaintDraftRequest>({
       query: (body) => ({
@@ -77,12 +99,97 @@ export const complaintApi = createApi({
       }),
       invalidatesTags: (_result, _error, draftId) => [
         { type: "ComplaintDraft", id: draftId },
-        { type: "ComplaintDraft", id: "ACTIVE" }
+        { type: "ComplaintDraft", id: "ACTIVE" },
+        { type: "ComplaintTimeline", id: draftId }
+      ]
+    }),
+    saveComplaintDraft: builder.mutation<
+      ComplaintResponse,
+      { draftId: string; body: SaveComplaintRequest }
+    >({
+      query: ({ draftId, body }) => ({
+        url: `/complaint-drafts/${draftId}/save`,
+        method: "POST",
+        body
+      }),
+      invalidatesTags: (_result, _error, { draftId }) => [
+        { type: "ComplaintDraft", id: draftId },
+        { type: "ComplaintDraft", id: `${draftId}-status` },
+        { type: "ComplaintTimeline", id: draftId },
+        { type: "ComplaintLedger", id: "LIST" }
       ]
     }),
     getComplaintDraftStatus: builder.query<ComplaintDraftStatusResponse, string>({
       query: (draftId) => `/complaint-drafts/${draftId}/status`,
       providesTags: (_result, _error, draftId) => [{ type: "ComplaintDraft", id: `${draftId}-status` }]
+    }),
+    getComplaintMessages: builder.query<ComplaintMessageListResponse, string>({
+      query: (draftId) => `/complaint-drafts/${draftId}/messages`,
+      providesTags: (_result, _error, draftId) => [{ type: "ComplaintMessage", id: draftId }]
+    }),
+    uploadComplaintAttachment: builder.mutation<
+      ComplaintAttachmentUploadResponse,
+      { draftId: string; file: File }
+    >({
+      query: ({ draftId, file }) => {
+        const body = new FormData();
+        body.append("file", file);
+        return {
+          url: `/complaint-drafts/${draftId}/attachments`,
+          method: "POST",
+          body
+        };
+      },
+      invalidatesTags: (_result, _error, { draftId }) => [
+        { type: "ComplaintDraft", id: draftId },
+        { type: "ComplaintDraft", id: "ACTIVE" },
+        { type: "ComplaintMessage", id: draftId },
+        { type: "ComplaintEvidence", id: draftId },
+        { type: "ComplaintTimeline", id: draftId }
+      ]
+    }),
+    getComplaintAttachmentStatus: builder.query<
+      ComplaintAttachmentStatusResponse,
+      { draftId: string; attachmentId: string }
+    >({
+      query: ({ draftId, attachmentId }) =>
+        `/complaint-drafts/${draftId}/attachments/${attachmentId}/status`,
+      providesTags: (_result, _error, { attachmentId }) => [
+        { type: "ComplaintAttachment", id: attachmentId }
+      ]
+    }),
+    getComplaintEvidence: builder.query<FieldEvidenceListResponse, string>({
+      query: (draftId) => `/complaint-drafts/${draftId}/evidence?active_only=true&limit=200`,
+      providesTags: (_result, _error, draftId) => [{ type: "ComplaintEvidence", id: draftId }]
+    }),
+    getComplaintFieldEvidence: builder.query<
+      FieldEvidenceDetailResponse,
+      { draftId: string; fieldName: string }
+    >({
+      query: ({ draftId, fieldName }) => `/complaint-drafts/${draftId}/evidence/${fieldName}`,
+      providesTags: (_result, _error, { draftId, fieldName }) => [
+        { type: "ComplaintEvidence", id: `${draftId}-${fieldName}` }
+      ]
+    }),
+    getComplaintTimeline: builder.query<TimelineListResponse, string>({
+      query: (draftId) => `/complaint-drafts/${draftId}/timeline?limit=200`,
+      providesTags: (_result, _error, draftId) => [{ type: "ComplaintTimeline", id: draftId }]
+    }),
+    sendComplaintMessage: builder.mutation<
+      SendComplaintMessageResponse,
+      { draftId: string; body: SendComplaintMessageRequest }
+    >({
+      query: ({ draftId, body }) => ({
+        url: `/complaint-drafts/${draftId}/messages`,
+        method: "POST",
+        body
+      }),
+      invalidatesTags: (_result, _error, { draftId }) => [
+        { type: "ComplaintMessage", id: draftId },
+        { type: "ComplaintDraft", id: draftId },
+        { type: "ComplaintEvidence", id: draftId },
+        { type: "ComplaintTimeline", id: draftId }
+      ]
     }),
     developmentPatchComplaintDraft: builder.mutation<
       ComplaintDraftResponse,
@@ -95,7 +202,29 @@ export const complaintApi = createApi({
       }),
       invalidatesTags: (_result, _error, { draftId }) => [
         { type: "ComplaintDraft", id: draftId },
-        { type: "ComplaintDraft", id: "ACTIVE" }
+        { type: "ComplaintDraft", id: "ACTIVE" },
+        { type: "ComplaintEvidence", id: draftId },
+        { type: "ComplaintTimeline", id: draftId }
+      ]
+    }),
+    getComplaints: builder.query<ComplaintLedgerListResponse, string | void>({
+      query: (queryString) => `/complaints${queryString ? `?${queryString}` : ""}`,
+      providesTags: () => [{ type: "ComplaintLedger", id: "LIST" }]
+    }),
+    getComplaint: builder.query<ComplaintResponse, string>({
+      query: (complaintId) => `/complaints/${complaintId}`,
+      providesTags: (_result, _error, complaintId) => [{ type: "ComplaintLedger", id: complaintId }]
+    }),
+    getComplaintVersions: builder.query<unknown[], string>({
+      query: (complaintId) => `/complaints/${complaintId}/versions`,
+      providesTags: (_result, _error, complaintId) => [
+        { type: "ComplaintLedger", id: `${complaintId}-versions` }
+      ]
+    }),
+    getComplaintLedgerTimeline: builder.query<TimelineListResponse, string>({
+      query: (complaintId) => `/complaints/${complaintId}/timeline`,
+      providesTags: (_result, _error, complaintId) => [
+        { type: "ComplaintLedger", id: `${complaintId}-timeline` }
       ]
     })
   })
@@ -105,6 +234,18 @@ export const {
   useCreateComplaintDraftMutation,
   useGetComplaintDraftQuery,
   useGetComplaintDraftStatusQuery,
+  useGetComplaintAttachmentStatusQuery,
+  useGetComplaintEvidenceQuery,
+  useGetComplaintFieldEvidenceQuery,
+  useGetComplaintTimelineQuery,
+  useGetComplaintsQuery,
+  useGetComplaintQuery,
+  useGetComplaintVersionsQuery,
+  useGetComplaintLedgerTimelineQuery,
+  useGetComplaintMessagesQuery,
   useResetComplaintDraftMutation,
+  useSaveComplaintDraftMutation,
+  useSendComplaintMessageMutation,
+  useUploadComplaintAttachmentMutation,
   useDevelopmentPatchComplaintDraftMutation
 } = complaintApi;

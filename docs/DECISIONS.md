@@ -195,3 +195,73 @@ Implications:
 - Complaint versions and audit events are append-only at the repository layer.
 - Seeded pharmaceutical records must stay clearly fictional demonstration data.
 - Migration and database tests must use a safe MySQL test database whose name ends in `_test`.
+
+## 2026-07-30: Server-Side OpenAI Gateway
+
+Decision:
+
+Create a reusable backend-only OpenAI gateway using the official OpenAI Python SDK and the Responses API. Structured responses must use Pydantic schemas, and model configuration must come from backend environment variables.
+
+Rationale:
+
+Future LangGraph tools need one secure integration point that captures model metadata, retries temporary failures, validates structured output, and keeps provider secrets out of the frontend.
+
+Implications:
+
+- React must never call OpenAI directly or receive OpenAI API keys.
+- FastAPI must start when OpenAI is not configured and report AI status safely.
+- Gateway calls return provider/model/token/latency metadata for future audit integration.
+- Prompt text and complete complaint data are not logged by default.
+- This gateway does not implement complaint extraction, risk classification, document parsing, Batch Intelligence, or Quality War Room behavior.
+
+## 2026-07-30: LangGraph Skeleton Uses MySQL Conversation State
+
+Decision:
+
+Create the complaint assistant LangGraph skeleton with MySQL `complaint_drafts`, `complaint_messages`, and `agent_runs` as durable state. Do not introduce a PostgreSQL checkpointer, SQLite database, Redis, external workflow engine, or user-facing graph visualizer.
+
+Rationale:
+
+The application database is already MySQL, and complaint truth must remain in auditable application tables rather than transient graph state.
+
+Implications:
+
+- Each assistant request reconstructs graph state from MySQL and writes messages plus run metadata back to MySQL.
+- Tool routes that are not implemented return explicit typed unavailable messages and no patches.
+- Question and summary routes are read-only and must not create field audit events.
+- The existing two-panel Complaint Workspace remains the only user-facing assistant UI.
+
+## 2026-07-31: Document Extraction Uses Existing Assistant Workspace
+
+Decision:
+
+Implement PDF, DOCX, TXT, and EML complaint document extraction through the existing `UploadDropzone` in the AI Complaint Intake Assistant. Original files are preserved outside MySQL, derived text and parser metadata are stored on attachment records, and extracted fields flow through the LangGraph patch validation and merge path.
+
+Rationale:
+
+Document extraction must populate the same read-only complaint draft as text logging and edits while preserving source evidence, audit events, and the locked two-panel workspace.
+
+Implications:
+
+- The upload directory is not public and file retrieval requires a future authorised streaming endpoint.
+- Duplicate hashes are scoped to the same draft; the same file in another draft remains isolated.
+- Digital PDFs, DOCX, TXT, and EML are supported; image-only PDF OCR is explicitly deferred.
+- Extracted document fields create field evidence and audit events rather than directly overwriting the form.
+
+## 2026-07-31: Hybrid Draft Risk And Safety Routing
+
+Decision:
+
+Use a hybrid pharmaceutical complaint risk engine that combines deterministic completeness, defect taxonomy, configurable safety severity floors, safety review routing, and contextual OpenAI structured assessment. Persisted outputs remain draft suggestions requiring authorised QA review.
+
+Rationale:
+
+Pharmaceutical complaint triage needs repeatable safety floors for critical signals while still allowing contextual assessment to explain evidence, contradictions, limitations, missing information, and recommended follow-up.
+
+Implications:
+
+- Deterministic rules may raise the minimum suggested severity; contextual AI output may not downgrade below that floor.
+- Safety routes are review-routing suggestions only and must not claim legal reportability or final regulatory notification decisions.
+- Risk versions are created only when material risk fields, severity, priority, routes, or evidence fingerprints change.
+- Existing complaint edit semantics remain patch-and-merge; unrelated fields and prior risk values are preserved when contextual risk assessment is unavailable.
+- The frontend displays risk detail and completeness cards inside the existing Section 4 without changing the locked two-panel workspace.

@@ -1,0 +1,15 @@
+from app.agents.complaint.prompts.intent_router import INTENT_ROUTER_PROMPT
+from app.agents.complaint.prompts.log_complaint import (
+    DOCUMENT_EXTRACTION_PROMPT,
+    EDIT_COMPLAINT_PROMPT,
+    LOG_COMPLAINT_EXTRACTION_PROMPT,
+    PROVISIONAL_RISK_PROMPT,
+)
+
+__all__ = [
+    "DOCUMENT_EXTRACTION_PROMPT",
+    "EDIT_COMPLAINT_PROMPT",
+    "INTENT_ROUTER_PROMPT",
+    "LOG_COMPLAINT_EXTRACTION_PROMPT",
+    "PROVISIONAL_RISK_PROMPT",
+]
