@@ -35,6 +35,7 @@ interface ComplaintWorkspaceProps {
   onCloseEvidenceDrawer?: () => void;
   selectedEvidenceLabel?: string | null;
   timeline?: TimelineEntryResponse[];
+  activeDraftId?: string | null;
   isIntelligenceDockExpanded: boolean;
   activeIntelligenceTab: IntelligenceTab;
   onIntelligenceDockExpandedChange: (isExpanded: boolean) => void;
@@ -64,6 +65,7 @@ export function ComplaintWorkspace({
   onCloseEvidenceDrawer,
   selectedEvidenceLabel = null,
   timeline,
+  activeDraftId = null,
   isIntelligenceDockExpanded,
   activeIntelligenceTab,
   onIntelligenceDockExpandedChange,
@@ -142,6 +144,8 @@ export function ComplaintWorkspace({
         visible={workspaceState.showQualityDock}
         isExpanded={isIntelligenceDockExpanded}
         activeTab={activeIntelligenceTab}
+        draftId={activeDraftId}
+        batchNumber={workspaceState.draft.fields.batchLotNumber.value}
         timeline={timeline}
         onExpandedChange={onIntelligenceDockExpandedChange}
         onActiveTabChange={onActiveIntelligenceTabChange}

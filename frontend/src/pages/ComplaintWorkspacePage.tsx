@@ -254,6 +254,7 @@ export function ComplaintWorkspacePage() {
         onViewFieldEvidence={(fieldName, label) => setSelectedEvidence({ fieldName, label })}
         onCloseEvidenceDrawer={() => setSelectedEvidence(null)}
         timeline={timelineQuery.data?.items ?? []}
+        activeDraftId={activeDraftId}
         isIntelligenceDockExpanded={complaintState.isIntelligenceDockExpanded}
         activeIntelligenceTab={complaintState.activeIntelligenceTab}
         onIntelligenceDockExpandedChange={(isExpanded) => dispatch(setIntelligenceDockExpanded(isExpanded))}

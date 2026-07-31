@@ -2,6 +2,7 @@ from app.models.base import Base
 from app.models.complaint import (
     AgentRun,
     AuditEvent,
+    BatchImpactRun,
     Complaint,
     ComplaintAttachment,
     ComplaintDraft,
@@ -45,6 +46,7 @@ __all__ = [
     "AuditEvent",
     "Base",
     "Batch",
+    "BatchImpactRun",
     "Complaint",
     "ComplaintAttachment",
     "ComplaintDraft",

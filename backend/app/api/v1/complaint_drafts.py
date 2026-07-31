@@ -15,6 +15,13 @@ from app.schemas.complaints import (
     SaveComplaintRequest,
 )
 from app.services import complaint_drafts as draft_service
+from app.services.batch_impact import build_batch_impact_analysis, simulate_containment_scope
+from app.services.batch_impact.schemas import (
+    BatchImpactResponse,
+    BatchImpactRunRequest,
+    ContainmentSimulationRequest,
+    ContainmentSimulationResponse,
+)
 from app.services.complaint_save import save_complaint
 
 router = APIRouter(prefix="/complaint-drafts", tags=["complaint-drafts"])
@@ -113,3 +120,27 @@ def save_complaint_draft(
     except Exception:
         db.rollback()
         raise
+
+
+@router.post("/{draft_id}/batch-impact", response_model=BatchImpactResponse)
+def run_batch_impact(
+    draft_id: str,
+    request: BatchImpactRunRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> BatchImpactResponse:
+    try:
+        result = build_batch_impact_analysis(db, draft_id=draft_id, created_by=request.created_by)
+        _commit_or_rollback(db)
+        return result
+    except Exception:
+        db.rollback()
+        raise
+
+
+@router.post("/{draft_id}/batch-impact/simulate", response_model=ContainmentSimulationResponse)
+def simulate_batch_impact(
+    draft_id: str,
+    request: ContainmentSimulationRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> ContainmentSimulationResponse:
+    return simulate_containment_scope(db, draft_id=draft_id, request=request)

@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { App } from "./App";
 import { createAppStore, type RootState } from "./app/store";
+import type { BatchImpactResponse } from "./features/batchImpact/batchImpactTypes";
 import type { ComplaintDraftResponse, ComplaintResponse } from "./features/complaint/complaintTypes";
 
 function makeDraft(overrides: Partial<ComplaintDraftResponse> = {}): ComplaintDraftResponse {
@@ -188,6 +189,104 @@ const timelineResponse = {
   limit: 200,
   offset: 0,
   next_offset: null
+};
+
+const batchImpactResponse: BatchImpactResponse = {
+  run_id: "batch-impact-run-1",
+  nodes: [
+    {
+      id: "complaint:draft-risk",
+      type: "complaint",
+      label: "Current Draft Complaint",
+      subtitle: "Capsule discolouration",
+      status: "DRAFT",
+      severity: "MAJOR",
+      evidence_record_id: "draft-risk",
+      metadata: { batch_lot_number: "BMX240602" },
+      position_hint: "origin"
+    },
+    {
+      id: "batch:primary",
+      type: "batch",
+      label: "BMX240602",
+      subtitle: "Complaint batch",
+      status: "RELEASED_DEMO",
+      severity: null,
+      evidence_record_id: "batch-primary",
+      metadata: { demo_record: true },
+      position_hint: "primary"
+    },
+    {
+      id: "deviation:seal",
+      type: "deviation",
+      label: "DEV-2026-023",
+      subtitle: "Seal temperature excursion observed on PL-04",
+      status: "OPEN_DEMO",
+      severity: "MAJOR",
+      evidence_record_id: "dev-seal",
+      metadata: { opened_at: "2026-07-12T10:00:00Z" },
+      position_hint: "quality"
+    }
+  ],
+  edges: [
+    {
+      id: "COMPLAINT_INVOLVES:complaint:draft-risk->batch:primary",
+      source: "complaint:draft-risk",
+      target: "batch:primary",
+      type: "COMPLAINT_INVOLVES",
+      relationship_label: "Complaint involves batch",
+      source_record_ids: ["draft-risk", "batch-primary"],
+      why_connected: "The draft batch number matches this reference batch.",
+      limitation: "Connection is based on seeded records and does not establish causation or final quality impact.",
+      confidence: "0.9000"
+    },
+    {
+      id: "BATCH_HAS_DEVIATION:batch:primary->deviation:seal",
+      source: "batch:primary",
+      target: "deviation:seal",
+      type: "BATCH_HAS_DEVIATION",
+      relationship_label: "Has deviation",
+      source_record_ids: ["batch-primary", "dev-seal"],
+      why_connected: "The deviation record is linked to this batch.",
+      limitation: "Connection is based on seeded records and does not establish causation or final quality impact.",
+      confidence: "0.9000"
+    }
+  ],
+  signals: [
+    {
+      name: "Open deviation on linked line or equipment",
+      category: "quality_event",
+      level: "HIGH",
+      explanation: "A linked open demo deviation may be relevant and should be investigated by QA.",
+      evidence_record_ids: ["dev-seal"],
+      confidence: "0.8800",
+      recommended_assessment: "Review the deviation record, batch record timing, and any linked CAPA status.",
+      limitation: "Connection is based on seeded records and does not establish causation or final quality impact."
+    }
+  ],
+  impact_summary: {
+    primary_batch: "BMX240602",
+    related_batches: ["BMX240603", "BMX240604"],
+    similar_complaint_count: 3,
+    open_deviations: 1,
+    linked_capas: 1,
+    distributed_quantity: "49500.000",
+    markets_or_locations: ["Delhi", "Mumbai", "Jaipur"],
+    remaining_inventory: "51000.000",
+    suppliers_involved: ["Demo API Supply Co.", "Demo Pack Materials Pvt. Ltd."],
+    elevated_recurrence_signal: true,
+    overall_investigation_priority: "HIGH",
+    data_limitations: ["Seeded reference data is fictional demonstration data."]
+  },
+  recommended_assessments: [
+    {
+      title: "Review primary batch retain samples",
+      rationale: "The complaint batch has related demo records to assess.",
+      evidence_record_ids: ["batch-primary"],
+      limitation: "Connection is based on seeded records and does not establish causation or final quality impact."
+    }
+  ],
+  limitations: ["Seeded reference data is fictional demonstration data."]
 };
 
 const committedComplaint: ComplaintResponse = {
@@ -927,6 +1026,133 @@ describe("App", () => {
     expect(screen.getByLabelText("Inspector Replay filters")).toBeInTheDocument();
     expect(screen.getByTestId("quality-intelligence-dock").compareDocumentPosition(screen.getByTestId("complaint-workspace"))).toBe(Node.DOCUMENT_POSITION_PRECEDING);
     expect(screen.getByTestId("complaint-workspace").children).toHaveLength(2);
+  });
+
+  test("batch impact graph appears only in Batch Intelligence dock tab", async () => {
+    window.sessionStorage.setItem("pharmaq_active_draft_id", "draft-risk");
+    mockComplaintFetch((request) => {
+      if (request.url.endsWith("/batch-impact") && request.method === "POST") {
+        return jsonResponse(batchImpactResponse);
+      }
+      if (request.url.includes("/evidence")) {
+        return jsonResponse(evidenceListResponse);
+      }
+      if (request.url.includes("/timeline")) {
+        return jsonResponse(timelineResponse);
+      }
+      if (request.url.includes("/status")) {
+        return jsonResponse({
+          id: "draft-risk",
+          status: "DRAFT",
+          updated_at: riskDraft.updated_at,
+          is_locked: false,
+          is_committed: false,
+          is_extraction_active: false
+        });
+      }
+      return jsonResponse(riskDraft);
+    });
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByDisplayValue("BMX240602");
+    await user.click(screen.getByRole("button", { name: "Quality Intelligence" }));
+    await user.click(screen.getByRole("button", { name: "Run Analysis" }));
+
+    expect(await screen.findByTestId("batch-impact-graph")).toBeInTheDocument();
+    expect(screen.getByTestId("batch-impact-metrics")).toHaveTextContent("BMX240602");
+    expect(screen.getByText("Open deviation on linked line or equipment")).toBeInTheDocument();
+    expect(screen.getByTestId("complaint-workspace").children).toHaveLength(2);
+
+    await user.click(screen.getByRole("tab", { name: "Evidence & Audit" }));
+
+    expect(screen.queryByTestId("batch-impact-graph")).not.toBeInTheDocument();
+    expect(screen.getByTestId("inspector-replay")).toBeInTheDocument();
+  });
+
+  test("batch impact node drawer overlays without changing workspace columns", async () => {
+    window.sessionStorage.setItem("pharmaq_active_draft_id", "draft-risk");
+    mockComplaintFetch((request) => {
+      if (request.url.endsWith("/batch-impact") && request.method === "POST") {
+        return jsonResponse(batchImpactResponse);
+      }
+      if (request.url.includes("/status")) {
+        return jsonResponse({
+          id: "draft-risk",
+          status: "DRAFT",
+          updated_at: riskDraft.updated_at,
+          is_locked: false,
+          is_committed: false,
+          is_extraction_active: false
+        });
+      }
+      return jsonResponse(riskDraft);
+    });
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByDisplayValue("BMX240602");
+    await user.click(screen.getByRole("button", { name: "Quality Intelligence" }));
+    await user.click(screen.getByRole("button", { name: "Run Analysis" }));
+    const graph = await screen.findByTestId("batch-impact-graph");
+    await user.click(within(graph).getByText("DEV-2026-023"));
+
+    expect(await screen.findByRole("dialog", { name: "Batch Record: DEV-2026-023" })).toBeInTheDocument();
+    expect(screen.getByTestId("batch-node-detail-drawer")).toHaveTextContent("OPEN_DEMO");
+    expect(document.querySelector(".overlay-backdrop")).toBeInTheDocument();
+    expect(screen.getByTestId("complaint-workspace").children).toHaveLength(2);
+  });
+
+  test("containment simulator opens from Batch Intelligence and stays simulation-only", async () => {
+    window.sessionStorage.setItem("pharmaq_active_draft_id", "draft-risk");
+    mockComplaintFetch((request) => {
+      if (request.url.endsWith("/batch-impact") && request.method === "POST") {
+        return jsonResponse(batchImpactResponse);
+      }
+      if (request.url.endsWith("/batch-impact/simulate") && request.method === "POST") {
+        return jsonResponse({
+          batches_included: [
+            {
+              batch_number: "BMX240602",
+              product_name: "Amoxicillin Capsules 500 mg",
+              inclusion_reasons: ["Primary complaint batch selected."]
+            }
+          ],
+          internal_inventory_potentially_assessed: "51000.000",
+          distributed_quantity: "49500.000",
+          customers_or_markets_requiring_assessment: ["Delhi Demo Hospital - Delhi"],
+          open_shipments: [],
+          recommended_sample_checks: ["Inspect retained samples for the primary complaint batch."],
+          possible_supply_impact: "Scope may include assessment of available warehouse inventory.",
+          limitations: ["Simulation only; it does not place holds, change inventory, notify customers, or perform recall actions."],
+          simulation_only: true
+        });
+      }
+      if (request.url.includes("/status")) {
+        return jsonResponse({
+          id: "draft-risk",
+          status: "DRAFT",
+          updated_at: riskDraft.updated_at,
+          is_locked: false,
+          is_committed: false,
+          is_extraction_active: false
+        });
+      }
+      return jsonResponse(riskDraft);
+    });
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByDisplayValue("BMX240602");
+    await user.click(screen.getByRole("button", { name: "Quality Intelligence" }));
+    await user.click(screen.getByRole("button", { name: "Run Analysis" }));
+    await user.click(await screen.findByRole("button", { name: "Simulate Scope" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Containment Scope Simulation" });
+    expect(dialog).toHaveTextContent("SIMULATION ONLY");
+    await user.click(within(dialog).getByRole("button", { name: "Run Simulation" }));
+
+    expect(await screen.findByTestId("containment-simulation-result")).toHaveTextContent("BMX240602");
   });
 
   test("quality intelligence dock remains below the workspace when draft data exists", async () => {

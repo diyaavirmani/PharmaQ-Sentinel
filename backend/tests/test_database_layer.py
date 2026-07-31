@@ -38,6 +38,7 @@ from app.models import (
     AuditEvent,
     Base,
     Batch,
+    BatchImpactRun,
     Complaint,
     ComplaintAttachment,
     ComplaintDraft,
@@ -56,11 +57,14 @@ from app.models.base import utc_now
 from app.models.reference import batch_material_lots
 from app.repositories.attachments import ComplaintAttachmentRepository
 from app.repositories.audit_events import AuditEventRepository
+from app.repositories.batch_impact import BatchImpactRunRepository
 from app.repositories.complaint_drafts import ComplaintDraftRepository
 from app.repositories.complaint_versions import ComplaintVersionRepository
 from app.repositories.complaints import ComplaintRepository
 from app.repositories.evidence import FieldEvidenceRepository
 from app.repositories.messages import ComplaintMessageRepository
+from app.services.batch_impact import build_batch_impact_analysis
+from app.services.batch_impact.language_rules import assert_safe_batch_impact_language
 from app.services.complaint_snapshots import (
     ComplaintSnapshotService,
     checksum_snapshot,
@@ -87,6 +91,7 @@ EXPECTED_TABLES = {
     "agent_runs",
     "audit_events",
     "batch_equipment",
+    "batch_impact_runs",
     "batch_material_lots",
     "batch_packaging_material_lots",
     "batches",
@@ -2415,3 +2420,153 @@ def test_canonical_checksum_for_audit_export_batch_is_reproducible(db_session: S
     second = draft_to_canonical_dict(draft)
 
     assert checksum_snapshot(first) == checksum_snapshot(second)
+
+
+def seed_batch_impact_draft(db_session: Session, *, batch_number: str | None = "BMX240602") -> ComplaintDraft:
+    seed_demo_data(db_session)
+    return ComplaintDraftRepository(db_session).create(
+        thread_id=f"thread-batch-impact-{batch_number or 'missing'}",
+        product_name="Amoxicillin Capsules 500 mg",
+        batch_lot_number=batch_number,
+        complaint_type="Capsule discolouration",
+        detailed_description="Customer reported capsule discolouration in demo batch.",
+        created_by="Demo User",
+    )
+
+
+def test_batch_impact_expected_bmx240602_graph(db_session: Session) -> None:
+    draft = seed_batch_impact_draft(db_session)
+
+    result = build_batch_impact_analysis(db_session, draft_id=draft.id, created_by="Demo User")
+
+    labels = {node.label for node in result.nodes}
+    edge_types = {edge.type for edge in result.edges}
+    signal_names = {signal.name for signal in result.signals}
+    assert {
+        "Amoxicillin Capsules 500 mg",
+        "BMX240602",
+        "BMX240603",
+        "BMX240604",
+        "PL-04",
+        "DEV-2026-023",
+        "CAPA-2026-014",
+        "ALU-BLISTER-L2406",
+        "Delhi",
+        "Mumbai",
+        "Jaipur",
+        "Central Demo Warehouse",
+    }.issubset(labels)
+    assert {
+        "COMPLAINT_INVOLVES",
+        "BATCH_SHARES_PACKAGING_WITH",
+        "BATCH_HAS_DEVIATION",
+        "DEVIATION_LINKED_TO_CAPA",
+        "BATCH_DISTRIBUTED_TO",
+        "BATCH_STORED_AT",
+    }.issubset(edge_types)
+    assert "Repeated similar complaint pattern" in signal_names
+    assert result.impact_summary.primary_batch == "BMX240602"
+    assert result.impact_summary.related_batches == ["BMX240603", "BMX240604"]
+    assert result.impact_summary.similar_complaint_count >= 3
+    assert result.impact_summary.remaining_inventory == "51000.000"
+
+
+def test_batch_impact_has_no_duplicate_nodes_or_edges(db_session: Session) -> None:
+    draft = seed_batch_impact_draft(db_session)
+    result = build_batch_impact_analysis(db_session, draft_id=draft.id)
+
+    assert len({node.id for node in result.nodes}) == len(result.nodes)
+    assert len({edge.id for edge in result.edges}) == len(result.edges)
+
+
+def test_batch_impact_evidence_ids_are_present_and_unrelated_records_excluded(db_session: Session) -> None:
+    draft = seed_batch_impact_draft(db_session)
+    result = build_batch_impact_analysis(db_session, draft_id=draft.id)
+    payload_text = result.model_dump_json()
+
+    assert all(node.evidence_record_id for node in result.nodes)
+    assert all(edge.source_record_ids for edge in result.edges)
+    assert "Paracetamol Tablets 500 mg" not in payload_text
+    assert "wrong label" not in payload_text
+
+
+def test_batch_impact_missing_and_unknown_batch_handled(db_session: Session) -> None:
+    missing = seed_batch_impact_draft(db_session, batch_number=None)
+    unknown = seed_batch_impact_draft(db_session, batch_number="UNKNOWN-BATCH")
+
+    with pytest.raises(PharmaQSentinelError) as missing_error:
+        build_batch_impact_analysis(db_session, draft_id=missing.id)
+    assert missing_error.value.status_code == 409
+
+    with pytest.raises(PharmaQSentinelError) as unknown_error:
+        build_batch_impact_analysis(db_session, draft_id=unknown.id)
+    assert unknown_error.value.status_code == 404
+
+
+def test_batch_impact_language_rejects_prohibited_causal_copy() -> None:
+    with pytest.raises(ValueError):
+        assert_safe_batch_impact_language("The packaging-line deviation caused the complaint.")
+
+    assert_safe_batch_impact_language("A packaging-line deviation may be relevant and should be investigated.")
+
+
+def test_batch_impact_persists_append_only_run_history(db_session: Session) -> None:
+    draft = seed_batch_impact_draft(db_session)
+    first = build_batch_impact_analysis(db_session, draft_id=draft.id)
+    second = build_batch_impact_analysis(db_session, draft_id=draft.id)
+
+    runs = db_session.scalars(select(BatchImpactRun).where(BatchImpactRun.draft_id == draft.id)).all()
+    assert {run.id for run in runs} == {first.run_id, second.run_id}
+    assert len(runs) == 2
+    assert all(run.status == "COMPLETE" for run in runs)
+    assert not hasattr(BatchImpactRunRepository, "update")
+    assert not hasattr(BatchImpactRunRepository, "delete")
+
+
+def test_batch_impact_endpoint_returns_typed_response(db_session: Session) -> None:
+    draft = seed_batch_impact_draft(db_session)
+    client = TestClient(make_app_with_session(db_session))
+
+    response = client.post(f"/api/v1/complaint-drafts/{draft.id}/batch-impact", json={"created_by": "Demo User"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run_id"]
+    assert payload["impact_summary"]["primary_batch"] == "BMX240602"
+    assert any(node["label"] == "DEV-2026-023" for node in payload["nodes"])
+
+
+def test_containment_simulation_does_not_modify_database_and_explains_scope(db_session: Session) -> None:
+    draft = seed_batch_impact_draft(db_session)
+    batch = db_session.scalars(select(Batch).where(Batch.batch_number == "BMX240602")).one()
+    before_status = batch.status
+    before_inventory = [
+        (record.id, record.quantity_available, record.quantity_on_hold)
+        for record in batch.warehouse_inventory
+    ]
+    client = TestClient(make_app_with_session(db_session))
+
+    response = client.post(
+        f"/api/v1/complaint-drafts/{draft.id}/batch-impact/simulate",
+        json={
+            "include_primary_batch": True,
+            "include_shared_packaging_lot": True,
+            "include_shared_material_lot": False,
+            "include_shared_equipment": False,
+            "equipment_date_window_days": 7,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["simulation_only"] is True
+    included = {batch_scope["batch_number"]: batch_scope for batch_scope in payload["batches_included"]}
+    assert set(included) == {"BMX240602", "BMX240603", "BMX240604"}
+    assert "Primary complaint batch selected." in included["BMX240602"]["inclusion_reasons"]
+    assert any("Shares packaging material lot" in reason for reason in included["BMX240603"]["inclusion_reasons"])
+    db_session.refresh(batch)
+    assert batch.status == before_status
+    assert [
+        (record.id, record.quantity_available, record.quantity_on_hold)
+        for record in batch.warehouse_inventory
+    ] == before_inventory

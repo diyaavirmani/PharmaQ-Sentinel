@@ -1,6 +1,11 @@
 import { createApi, type BaseQueryFn } from "@reduxjs/toolkit/query/react";
 import { getApiBaseUrl } from "../../services/apiClient";
 import type {
+  BatchImpactResponse,
+  ContainmentSimulationRequest,
+  ContainmentSimulationResponse
+} from "../batchImpact/batchImpactTypes";
+import type {
   ComplaintDraftResponse,
   ComplaintDraftStatusResponse,
   ComplaintAttachmentStatusResponse,
@@ -77,7 +82,8 @@ export const complaintApi = createApi({
     "ComplaintAttachment",
     "ComplaintEvidence",
     "ComplaintTimeline",
-    "ComplaintLedger"
+    "ComplaintLedger",
+    "BatchImpact"
   ],
   endpoints: (builder) => ({
     createComplaintDraft: builder.mutation<ComplaintDraftResponse, CreateComplaintDraftRequest>({
@@ -226,6 +232,24 @@ export const complaintApi = createApi({
       providesTags: (_result, _error, complaintId) => [
         { type: "ComplaintLedger", id: `${complaintId}-timeline` }
       ]
+    }),
+    runBatchImpact: builder.mutation<BatchImpactResponse, { draftId: string; createdBy?: string }>({
+      query: ({ draftId, createdBy }) => ({
+        url: `/complaint-drafts/${draftId}/batch-impact`,
+        method: "POST",
+        body: { created_by: createdBy ?? "Demo User" }
+      }),
+      invalidatesTags: (_result, _error, { draftId }) => [{ type: "BatchImpact", id: draftId }]
+    }),
+    simulateBatchImpact: builder.mutation<
+      ContainmentSimulationResponse,
+      { draftId: string; body: ContainmentSimulationRequest }
+    >({
+      query: ({ draftId, body }) => ({
+        url: `/complaint-drafts/${draftId}/batch-impact/simulate`,
+        method: "POST",
+        body
+      })
     })
   })
 });
@@ -242,6 +266,8 @@ export const {
   useGetComplaintQuery,
   useGetComplaintVersionsQuery,
   useGetComplaintLedgerTimelineQuery,
+  useRunBatchImpactMutation,
+  useSimulateBatchImpactMutation,
   useGetComplaintMessagesQuery,
   useResetComplaintDraftMutation,
   useSaveComplaintDraftMutation,

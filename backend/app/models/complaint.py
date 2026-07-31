@@ -124,6 +124,7 @@ class ComplaintDraft(UUIDPrimaryKeyMixin, TimestampMixin, CreatedByMixin, Compla
     risk_assessments: Mapped[list[RiskAssessmentVersion]] = relationship(back_populates="draft")
     audit_events: Mapped[list[AuditEvent]] = relationship(back_populates="draft")
     agent_runs: Mapped[list[AgentRun]] = relationship(back_populates="draft")
+    batch_impact_runs: Mapped[list[BatchImpactRun]] = relationship(back_populates="draft")
     committed_complaints: Mapped[list[Complaint]] = relationship(back_populates="committed_from_draft")
 
     @validates(*OPTIONAL_STRING_FIELDS)
@@ -479,3 +480,31 @@ class AgentRun(UUIDPrimaryKeyMixin, Base):
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     draft: Mapped[ComplaintDraft] = relationship(back_populates="agent_runs")
+
+
+class BatchImpactRun(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "batch_impact_runs"
+    __table_args__ = (
+        Index("ix_batch_impact_runs_draft_id", "draft_id"),
+        Index("ix_batch_impact_runs_status", "status"),
+        Index("ix_batch_impact_runs_created_at", "created_at"),
+        MYSQL_TABLE_KWARGS,
+    )
+
+    draft_id: Mapped[str] = mapped_column(
+        CHAR(36),
+        ForeignKey("complaint_drafts.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    input_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
+    graph_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
+    signals_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    summary_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    limitations_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=utc_now, nullable=False)
+    created_by: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    provider: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    model: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+
+    draft: Mapped[ComplaintDraft] = relationship(back_populates="batch_impact_runs")

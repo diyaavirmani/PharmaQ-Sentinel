@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { BatchImpactPanel } from "../../features/batchImpact/BatchImpactPanel";
 import type { IntelligenceTab, TimelineEntryResponse } from "../../features/complaint/complaintTypes";
 
 const intelligenceTabs: IntelligenceTab[] = [
@@ -13,6 +14,8 @@ interface QualityIntelligenceDockProps {
   visible: boolean;
   isExpanded: boolean;
   activeTab: IntelligenceTab;
+  draftId?: string | null;
+  batchNumber?: string | null;
   timeline?: TimelineEntryResponse[];
   onExpandedChange: (isExpanded: boolean) => void;
   onActiveTabChange: (tab: IntelligenceTab) => void;
@@ -111,6 +114,8 @@ export function QualityIntelligenceDock({
   visible,
   isExpanded,
   activeTab,
+  draftId = null,
+  batchNumber = null,
   timeline,
   onExpandedChange,
   onActiveTabChange
@@ -139,12 +144,17 @@ export function QualityIntelligenceDock({
               type="button"
               role="tab"
               aria-selected={activeTab === tabLabel}
-              disabled={tabLabel !== "Evidence & Audit"}
+              disabled={tabLabel !== "Evidence & Audit" && tabLabel !== "Batch Intelligence"}
               onClick={() => onActiveTabChange(tabLabel)}
             >
               {tabLabel}
             </button>
           ))}
+        </div>
+      ) : null}
+      {isExpanded && activeTab === "Batch Intelligence" ? (
+        <div className="quality-intelligence-dock__panel">
+          <BatchImpactPanel draftId={draftId} batchNumber={batchNumber} />
         </div>
       ) : null}
       {isExpanded && activeTab === "Evidence & Audit" ? (

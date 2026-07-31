@@ -847,6 +847,287 @@
   font-weight: 800;
 }
 
+.batch-impact-panel {
+  display: grid;
+  gap: var(--spacing-4);
+}
+
+.batch-impact-panel__header,
+.batch-impact-graph-card__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+}
+
+.batch-impact-panel__header span {
+  color: var(--color-primary-purple);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.batch-impact-panel__header h3,
+.batch-impact-columns h4 {
+  margin: var(--spacing-1) 0 0;
+  letter-spacing: 0;
+}
+
+.batch-impact-panel__header h3 {
+  font-size: 1rem;
+}
+
+.batch-impact-panel__header p,
+.batch-impact-empty,
+.batch-impact-loading,
+.batch-impact-edge-detail p,
+.batch-impact-edge-detail span,
+.recommended-assessments p,
+.recommended-assessments span,
+.batch-impact-limitations li,
+.quality-signal-card p,
+.quality-signal-card dt,
+.quality-signal-card dd,
+.batch-node-detail p,
+.batch-node-detail dt,
+.batch-node-detail dd,
+.containment-result p,
+.containment-result li {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.batch-impact-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+}
+
+.batch-impact-empty,
+.batch-impact-loading,
+.batch-impact-edge-detail,
+.batch-impact-limitations,
+.containment-result {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-3);
+  background: var(--color-muted-background);
+}
+
+.batch-impact-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.batch-impact-results {
+  display: grid;
+  gap: var(--spacing-4);
+}
+
+.batch-impact-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--spacing-3);
+}
+
+.batch-impact-metrics div,
+.quality-signal-card,
+.recommended-assessments li {
+  display: grid;
+  gap: var(--spacing-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-3);
+  background: var(--color-white);
+}
+
+.batch-impact-metrics span,
+.quality-signal-card span,
+.batch-node-detail span {
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.batch-impact-metrics strong,
+.batch-impact-graph-card__header strong,
+.quality-signal-card strong,
+.recommended-assessments strong,
+.batch-impact-limitations strong,
+.containment-result strong {
+  color: var(--color-text-primary);
+  font-size: 0.88rem;
+}
+
+.batch-impact-graph-card {
+  display: grid;
+  gap: var(--spacing-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-3);
+  background: var(--color-white);
+}
+
+.batch-impact-graph {
+  height: 420px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: #fbfcff;
+}
+
+.batch-impact-node {
+  width: 11rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-2);
+  color: var(--color-text-primary);
+  background: var(--color-white);
+  box-shadow: var(--shadow-compact);
+  font-size: 0.78rem;
+}
+
+.batch-impact-node strong,
+.batch-impact-node span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-impact-node span {
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+}
+
+.batch-impact-node--complaint {
+  border-color: #d8ccff;
+  background: var(--color-primary-purple-soft);
+}
+
+.batch-impact-node--batch {
+  border-color: #bfdbfe;
+  background: var(--color-info-soft);
+}
+
+.batch-impact-node--material {
+  border-color: #b7e4c7;
+  background: var(--color-success-soft);
+}
+
+.batch-impact-node--quality {
+  border-color: #fed7aa;
+  background: var(--color-warning-soft);
+}
+
+.batch-impact-node--distribution {
+  border-color: #d8dde8;
+  background: var(--color-muted-background);
+}
+
+.batch-impact-edge {
+  stroke: var(--color-border-strong);
+}
+
+.batch-impact-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+}
+
+.batch-impact-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  color: var(--color-text-secondary);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.batch-impact-legend i {
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-white);
+}
+
+.batch-impact-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: var(--spacing-4);
+  align-items: start;
+}
+
+.batch-impact-columns section,
+.quality-signal-list,
+.recommended-assessments,
+.batch-node-detail,
+.containment-simulator {
+  display: grid;
+  gap: var(--spacing-3);
+}
+
+.recommended-assessments,
+.batch-impact-limitations ul,
+.containment-result ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.quality-signal-card--high {
+  border-color: #fecaca;
+  background: var(--color-danger-soft);
+}
+
+.quality-signal-card--elevated {
+  border-color: #fed7aa;
+  background: var(--color-warning-soft);
+}
+
+.quality-signal-card--watch {
+  border-color: #bfdbfe;
+  background: var(--color-info-soft);
+}
+
+.quality-signal-card dl,
+.batch-node-detail dl {
+  display: grid;
+  gap: var(--spacing-2);
+  margin: 0;
+}
+
+.quality-signal-card div,
+.batch-node-detail dl div {
+  display: grid;
+  gap: var(--spacing-1);
+}
+
+.quality-signal-card dd,
+.batch-node-detail dd {
+  margin: 0;
+}
+
+.containment-simulator label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  color: var(--color-text-primary);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.containment-simulator input[type="number"] {
+  width: 5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.38rem 0.5rem;
+}
+
 .overlay-backdrop {
   position: fixed;
   inset: 0;
@@ -1200,6 +1481,15 @@
 
   .inspector-replay__filters {
     grid-template-columns: 1fr;
+  }
+
+  .batch-impact-metrics,
+  .batch-impact-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .batch-impact-graph {
+    height: 360px;
   }
 
   .complaint-footer-actions {
