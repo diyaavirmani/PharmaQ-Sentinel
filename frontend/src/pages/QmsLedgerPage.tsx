@@ -67,7 +67,7 @@ export function QmsLedgerPage() {
             <p>Demonstration QMS Ledger</p>
             <h1>Saved Complaints</h1>
           </div>
-          <Link className="button button--secondary" to="/">
+          <Link className="button button--secondary" to="/workspace">
             Complaint Workspace
           </Link>
         </header>

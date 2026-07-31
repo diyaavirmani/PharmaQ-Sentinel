@@ -34,14 +34,14 @@ async function expectTwoColumnContract(page: Page) {
 }
 
 test("empty desktop workspace screenshot", async ({ page }) => {
-  await page.goto("/?state=empty");
+  await page.goto("/workspace?state=empty");
   await expect(page.getByText("Log Customer Complaint")).toBeVisible();
   await expect(page.getByTestId("quality-intelligence-dock")).toHaveCount(0);
   await page.screenshot({ path: "test-results/screenshots/empty-desktop-workspace.png", fullPage: true });
 });
 
 test("extracting desktop workspace screenshot", async ({ page }) => {
-  await page.goto("/?state=extracting");
+  await page.goto("/workspace?state=extracting");
   await expectTwoColumnContract(page);
   await expect(page.getByTestId("complaint-extraction-progress")).toContainText("62%");
   await expect(page.getByTestId("quality-intelligence-dock")).toBeVisible();
@@ -49,7 +49,7 @@ test("extracting desktop workspace screenshot", async ({ page }) => {
 });
 
 test("populated desktop workspace screenshot", async ({ page }) => {
-  await page.goto("/?state=populated");
+  await page.goto("/workspace?state=populated");
   await expectTwoColumnContract(page);
   const productName = page.getByRole("textbox", { name: "Product Name" });
   await expect(productName).toHaveValue("Amoxicillin Capsules 500 mg");
@@ -58,7 +58,7 @@ test("populated desktop workspace screenshot", async ({ page }) => {
 });
 
 test("edited desktop workspace screenshot", async ({ page }) => {
-  await page.goto("/?state=edited");
+  await page.goto("/workspace?state=edited");
   await expectTwoColumnContract(page);
   await expect(page.getByText("Recent assistant correction applied to highlighted fields.")).toBeVisible();
   await expect(page.getByText("Updated by AI")).toHaveCount(2);
@@ -67,7 +67,7 @@ test("edited desktop workspace screenshot", async ({ page }) => {
 
 test("mobile stacked workspace screenshot", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
-  await page.goto("/?state=extracting");
+  await page.goto("/workspace?state=extracting");
 
   const formPanel = page.getByTestId("complaint-form-panel");
   const assistantPanel = page.getByTestId("complaint-assistant-panel");

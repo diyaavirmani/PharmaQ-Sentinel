@@ -591,7 +591,8 @@ function mockComplaintFetch(handler?: (request: { url: string; method: string })
   return fetchMock;
 }
 
-function renderApp(preloadedState?: Partial<RootState>) {
+function renderApp(preloadedState?: Partial<RootState>, route = "/workspace") {
+  window.history.pushState({}, "", route);
   const store = createAppStore(preloadedState);
   render(
     <Provider store={store}>
@@ -609,6 +610,25 @@ afterEach(() => {
 });
 
 describe("App", () => {
+  test("landing page explains the product and links to the workspace", () => {
+    renderApp(undefined, "/");
+
+    expect(
+      screen.getByRole("heading", { name: "From customer complaint to quality intelligence in minutes." })
+    ).toBeInTheDocument();
+    expect(screen.getByText("One assistant. One controlled complaint record.")).toBeInTheDocument();
+    expect(screen.getByText("Batch Blast-Radius Digital Twin")).toBeInTheDocument();
+    expect(screen.getByText("AI Quality War Room")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Launch Complaint Workspace|Open Workspace/ })[0]).toHaveAttribute(
+      "href",
+      "/workspace"
+    );
+    expect(screen.getByRole("link", { name: "Explore Batch Intelligence" })).toHaveAttribute(
+      "href",
+      "/workspace?tab=batch-intelligence"
+    );
+  });
+
   test("creates a draft when sessionStorage is empty", async () => {
     const fetchMock = mockComplaintFetch();
 
@@ -1574,7 +1594,6 @@ describe("App", () => {
   });
 
   test("qms ledger route displays search filters and saved complaint table", async () => {
-    window.history.pushState({}, "", "/qms-ledger");
     mockComplaintFetch((request) => {
       if (request.url.includes("/complaints")) {
         return jsonResponse({
@@ -1587,7 +1606,7 @@ describe("App", () => {
       return jsonResponse({ detail: "Not found" }, 404);
     });
 
-    renderApp();
+    renderApp(undefined, "/qms-ledger");
 
     expect(await screen.findByRole("heading", { name: "Saved Complaints" })).toBeInTheDocument();
     expect(screen.getByLabelText("Search")).toBeInTheDocument();
@@ -1598,7 +1617,6 @@ describe("App", () => {
 
   test("workspace restores after ledger navigation without creating a new draft", async () => {
     window.sessionStorage.setItem("pharmaq_active_draft_id", "draft-risk");
-    window.history.pushState({}, "", "/qms-ledger");
     const fetchMock = mockComplaintFetch((request) => {
       if (request.url.includes("/complaints")) {
         return jsonResponse({ items: [committedComplaint], limit: 10, offset: 0, next_offset: null });
@@ -1626,7 +1644,7 @@ describe("App", () => {
     });
     const user = userEvent.setup();
 
-    renderApp();
+    renderApp(undefined, "/qms-ledger");
     await user.click(await screen.findByRole("link", { name: "Complaint Workspace" }));
 
     expect(await screen.findByDisplayValue("Amoxicillin Capsules 500 mg")).toBeInTheDocument();

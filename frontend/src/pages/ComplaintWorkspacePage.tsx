@@ -25,8 +25,10 @@ import {
 import { mapDraftToWorkspaceState, createVisualRegressionState } from "../features/complaint/complaintMappers";
 import {
   selectComplaintState,
+  selectIsComplaintFormEmpty,
   selectShouldEnableSaveComplaint
 } from "../features/complaint/complaintSelectors";
+import type { IntelligenceTab } from "../features/complaint/complaintTypes";
 import type { WorkspaceViewState } from "../types/complaintWorkspace";
 import type { DuplicateAnalysisResult, InvestigationPlaybookResult } from "../features/investigationSupport/investigationSupportTypes";
 import "../styles/workspace.css";
@@ -58,9 +60,27 @@ function visualRegressionStateFromQuery(): WorkspaceViewState | null {
   return null;
 }
 
+function intelligenceTabFromQuery(): IntelligenceTab | null {
+  const tab = new URLSearchParams(window.location.search).get("tab");
+  if (tab === "batch-intelligence") {
+    return "Batch Intelligence";
+  }
+  if (tab === "quality-war-room") {
+    return "Quality War Room";
+  }
+  if (tab === "evidence-audit") {
+    return "Evidence & Audit";
+  }
+  if (tab === "investigation-support") {
+    return "Investigation Support";
+  }
+  return null;
+}
+
 export function ComplaintWorkspacePage() {
   const dispatch = useAppDispatch();
   const complaintState = useAppSelector(selectComplaintState);
+  const isComplaintFormEmpty = useAppSelector(selectIsComplaintFormEmpty);
   const demoAiMode = useAppSelector((state) => state.applicationStatus.demoAiMode);
   const [duplicateAnalysis, setDuplicateAnalysis] = useState<DuplicateAnalysisResult | null>(null);
   const [investigationPlaybook, setInvestigationPlaybook] = useState<InvestigationPlaybookResult | null>(null);
@@ -69,6 +89,7 @@ export function ComplaintWorkspacePage() {
   const createStartedRef = useRef(false);
   const [selectedEvidence, setSelectedEvidence] = useState<{ fieldName: string; label: string } | null>(null);
   const visualState = visualRegressionStateFromQuery();
+  const requestedIntelligenceTab = useMemo(() => intelligenceTabFromQuery(), []);
 
   const [createDraft] = useCreateComplaintDraftMutation();
   const [resetDraft] = useResetComplaintDraftMutation();
@@ -120,6 +141,18 @@ export function ComplaintWorkspacePage() {
       void dispatch(checkBackendHealth());
     }
   }, [dispatch, visualState]);
+
+  useEffect(() => {
+    if (!requestedIntelligenceTab || visualState) {
+      return;
+    }
+
+    dispatch(setActiveIntelligenceTab(requestedIntelligenceTab));
+    dispatch(setIntelligenceDockExpanded(true));
+    if (isComplaintFormEmpty) {
+      dispatch(setDraftInfoMessage("Log or upload a complaint before running Quality Intelligence tools."));
+    }
+  }, [dispatch, isComplaintFormEmpty, requestedIntelligenceTab, visualState]);
 
   useEffect(() => {
     if (storedDraftId) {
