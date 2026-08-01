@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import re
 import time
@@ -50,6 +51,21 @@ TStructured = TypeVar("TStructured", bound=BaseModel)
 EMAIL_PATTERN = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
 LONG_IDENTIFIER_PATTERN = re.compile(r"\b[A-Z0-9][A-Z0-9_-]{5,}\b", re.IGNORECASE)
 PHONE_PATTERN = re.compile(r"(?<!\d)(?:\+?\d[\d\s().-]{7,}\d)(?!\d)")
+JSON_SCHEMA_STRUCTURE_KEYS = frozenset(
+    {
+        "$defs",
+        "$ref",
+        "additionalProperties",
+        "allOf",
+        "anyOf",
+        "const",
+        "enum",
+        "items",
+        "oneOf",
+        "properties",
+        "type",
+    }
+)
 
 
 class ProviderStatusCache:
@@ -143,6 +159,11 @@ class OpenAIModelGateway(BaseLLMGateway):
             self.settings.openai_max_output_tokens if max_output_tokens is None else max_output_tokens
         )
         warnings: list[str] = []
+        use_provider_parse = hasattr(self.client.responses, "parse") and not self._requires_local_json_validation(
+            response_schema
+        )
+        if not use_provider_parse:
+            warnings.append("Provider-enforced structured output unavailable; used local JSON validation")
 
         def make_request(repair_instruction: str | None = None) -> object:
             instructions = system_instructions
@@ -151,7 +172,7 @@ class OpenAIModelGateway(BaseLLMGateway):
                 instructions = f"{system_instructions}\n\n{repair_instruction}"
                 input_text = f"{user_input}\n\nReturn corrected JSON only."
 
-            if hasattr(self.client.responses, "parse"):
+            if use_provider_parse:
                 return self.client.responses.parse(
                     model=model,
                     instructions=instructions,
@@ -163,22 +184,13 @@ class OpenAIModelGateway(BaseLLMGateway):
                     timeout=self.settings.openai_timeout_seconds,
                 )
 
-            warnings.append("SDK parse helper unavailable; used JSON text fallback")
             return self.client.responses.create(
                 model=model,
-                instructions=instructions,
+                instructions=self._json_text_instructions(instructions, response_schema),
                 input=input_text,
                 temperature=requested_temperature,
                 max_output_tokens=requested_max_tokens,
                 metadata=self._safe_openai_metadata(request_context),
-                text={
-                    "format": {
-                        "type": "json_schema",
-                        "name": response_schema.__name__,
-                        "strict": True,
-                        "schema": response_schema.model_json_schema(),
-                    }
-                },
                 timeout=self.settings.openai_timeout_seconds,
             )
 
@@ -394,6 +406,17 @@ class OpenAIModelGateway(BaseLLMGateway):
         actual_model = getattr(response, "model", None)
         return actual_model if isinstance(actual_model, str) and actual_model else requested_model
 
+    def _requires_local_json_validation(self, response_schema: type[BaseModel]) -> bool:
+        return _contains_untyped_json_schema_node(response_schema.model_json_schema())
+
+    def _json_text_instructions(self, instructions: str, response_schema: type[BaseModel]) -> str:
+        return (
+            f"{instructions}\n\n"
+            "Return exactly one JSON object that validates against this JSON Schema. "
+            "Do not include markdown, prose, comments, or trailing text.\n\n"
+            f"JSON Schema:\n{json.dumps(response_schema.model_json_schema(), sort_keys=True)}"
+        )
+
     def _log_success(
         self,
         request_context: LLMRequestContext,
@@ -455,3 +478,21 @@ def redact_development_text(text: str) -> str:
     redacted = EMAIL_PATTERN.sub("[redacted-email]", text)
     redacted = PHONE_PATTERN.sub("[redacted-phone]", redacted)
     return LONG_IDENTIFIER_PATTERN.sub("[redacted-id]", redacted)
+
+
+def _contains_untyped_json_schema_node(schema_node: object) -> bool:
+    if isinstance(schema_node, list):
+        return any(_contains_untyped_json_schema_node(item) for item in schema_node)
+
+    if not isinstance(schema_node, dict):
+        return False
+
+    if not schema_node:
+        return True
+
+    has_schema_structure = bool(JSON_SCHEMA_STRUCTURE_KEYS.intersection(schema_node))
+    has_only_annotations = set(schema_node).issubset({"default", "description", "examples", "title"})
+    if has_only_annotations and not has_schema_structure:
+        return True
+
+    return any(_contains_untyped_json_schema_node(value) for value in schema_node.values())

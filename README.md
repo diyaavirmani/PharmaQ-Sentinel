@@ -103,7 +103,9 @@ Update the required values in `.env`:
 APP_ENV=development
 DEBUG=true
 
-BACKEND_CORS_ORIGINS=http://localhost:5173
+BACKEND_HOST=127.0.0.1
+BACKEND_PORT=8000
+BACKEND_CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 
 DATABASE_URL=mysql+pymysql://USER:PASSWORD@127.0.0.1:3306/pharmaq_sentinel?charset=utf8mb4
 

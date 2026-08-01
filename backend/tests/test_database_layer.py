@@ -1731,6 +1731,12 @@ def test_contradictory_evidence_preserved_in_contextual_assessment() -> None:
     ]
 
 
+def test_patient_harm_level_validation_matches_mysql_column() -> None:
+    field = PharmaRiskAssessment.model_fields["patient_harm_level"]
+
+    assert field.metadata[0].max_length == 30
+
+
 def seeded_edit_draft(db_session: Session, **overrides: object) -> ComplaintDraft:
     fields = {
         "thread_id": "thread-edit-draft",

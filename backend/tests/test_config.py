@@ -1,7 +1,12 @@
 import pytest
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.config import Settings, normalise_mysql_sqlalchemy_url, redact_database_url
+from app.core.config import (
+    Settings,
+    get_settings,
+    normalise_mysql_sqlalchemy_url,
+    redact_database_url,
+)
 from app.main import create_app
 
 
@@ -87,8 +92,14 @@ def test_demo_ai_mode_is_validated() -> None:
         Settings(_env_file=None, DEMO_AI_MODE="random")
 
 
-def test_cors_configuration() -> None:
+def test_cors_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(
+        "BACKEND_CORS_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173",
+    )
+    get_settings.cache_clear()
     app = create_app()
+    get_settings.cache_clear()
 
     cors_middleware = next(
         middleware
@@ -96,5 +107,8 @@ def test_cors_configuration() -> None:
         if middleware.cls is CORSMiddleware
     )
 
-    assert cors_middleware.kwargs["allow_origins"] == ["http://localhost:5173"]
+    assert cors_middleware.kwargs["allow_origins"] == [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
     assert cors_middleware.kwargs["allow_credentials"] is True

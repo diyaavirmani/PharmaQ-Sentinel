@@ -84,7 +84,7 @@ class PharmaRiskAssessment(BaseModel):
 
     suggested_severity: Severity
     suggested_priority: Priority
-    patient_harm_level: str | None = Field(default=None, max_length=60)
+    patient_harm_level: str | None = Field(default=None, max_length=30)
     quality_defect_possible: bool = False
     adverse_event_possible: bool = False
     counterfeit_possible: bool = False

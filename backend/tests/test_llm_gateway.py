@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal
 
 import httpx
 import pytest
@@ -24,6 +24,11 @@ from app.services.llm.response_parser import parse_json_text_as_model
 class DemoStructuredOutput(BaseModel):
     severity: Literal["CRITICAL", "MAJOR", "MINOR", "UNDETERMINED"]
     confidence: Decimal = Field(ge=0, le=1)
+    summary: str
+
+
+class FreeFormStructuredOutput(BaseModel):
+    value: Any | None = None
     summary: str
 
 
@@ -151,6 +156,33 @@ def test_valid_structured_response() -> None:
     assert result.actual_model == "gpt-test-actual"
     assert result.parsed_output.severity == "MINOR"
     assert result.usage.total_tokens == 18
+
+
+def test_free_form_schema_uses_local_json_validation_fallback() -> None:
+    responses = FakeResponsesResource(
+        create_results=[
+            FakeResponse(
+                output_text='{"value": {"field": "quantity_affected", "new_value": "1.000"}, "summary": "validated"}',
+                usage={"input_tokens": 12, "output_tokens": 9, "total_tokens": 21},
+            )
+        ]
+    )
+
+    result = gateway_with_responses(responses).generate_structured(
+        system_instructions="Return structured output.",
+        user_input="Use safe demo input.",
+        response_schema=FreeFormStructuredOutput,
+        request_context=request_context(),
+    )
+
+    assert responses.parse_calls == []
+    assert len(responses.create_calls) == 1
+    assert "text" not in responses.create_calls[0]
+    assert "JSON Schema" in str(responses.create_calls[0]["instructions"])
+    assert result.parsed_output.value == {"field": "quantity_affected", "new_value": "1.000"}
+    assert result.parsed_output.summary == "validated"
+    assert "Provider-enforced structured output unavailable; used local JSON validation" in result.warnings
+    assert result.usage.total_tokens == 21
 
 
 def test_pydantic_schema_validation_rejects_unknown_enum_and_numeric_range() -> None:

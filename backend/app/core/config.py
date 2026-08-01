@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     backend_host: str = Field(default="127.0.0.1", validation_alias="BACKEND_HOST")
     backend_port: int = Field(default=8000, validation_alias="BACKEND_PORT")
     backend_cors_origins: Annotated[list[str], NoDecode] = Field(
-        default_factory=lambda: ["http://localhost:5173"],
+        default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"],
         validation_alias="BACKEND_CORS_ORIGINS",
     )
 
