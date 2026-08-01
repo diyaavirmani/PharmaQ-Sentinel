@@ -54,6 +54,7 @@ def _attachment_status_response(
     *,
     duplicate: bool = False,
     changed_fields: list[str] | None = None,
+    draft=None,
 ) -> ComplaintAttachmentUploadResponse:
     return ComplaintAttachmentUploadResponse(
         attachment_id=attachment.id,
@@ -64,6 +65,7 @@ def _attachment_status_response(
         duplicate=duplicate,
         changed_fields=changed_fields or [],
         created_at=attachment.created_at,
+        draft=ComplaintDraftResponse.model_validate(draft) if draft is not None else None,
     )
 
 
@@ -141,7 +143,7 @@ async def upload_complaint_attachment(
     attachment_repository = ComplaintAttachmentRepository(db)
     duplicate = attachment_repository.get_by_hash_for_draft(draft_id, checksum)
     if duplicate:
-        return _attachment_status_response(duplicate, duplicate=True)
+        return _attachment_status_response(duplicate, duplicate=True, draft=draft)
 
     upload_directory = Path(settings.upload_directory)
     if not upload_directory.is_absolute():
@@ -249,7 +251,8 @@ async def upload_complaint_attachment(
         raise
 
     db.refresh(attachment)
-    return _attachment_status_response(attachment, changed_fields=changed_fields)
+    refreshed_draft = ComplaintDraftRepository(db).get_required(draft_id)
+    return _attachment_status_response(attachment, changed_fields=changed_fields, draft=refreshed_draft)
 
 
 @router.get("/{draft_id}/attachments/{attachment_id}/status", response_model=ComplaintAttachmentStatusResponse)

@@ -42,23 +42,35 @@ class BatchRepository(BaseRepository[Batch]):
     def get(self, batch_id: str) -> Batch | None:
         return self.db.get(Batch, batch_id)
 
+    def _detail_options(self):
+        return (
+            selectinload(Batch.product),
+            selectinload(Batch.manufacturing_line),
+            selectinload(Batch.packaging_line),
+            selectinload(Batch.material_lots).selectinload(MaterialLot.supplier),
+            selectinload(Batch.packaging_material_lots).selectinload(PackagingMaterialLot.supplier),
+            selectinload(Batch.equipment_records),
+            selectinload(Batch.deviations).selectinload(Deviation.capas),
+            selectinload(Batch.distribution_records),
+            selectinload(Batch.warehouse_inventory),
+        )
+
     def get_by_batch_number(self, batch_number: str) -> Batch | None:
         statement = (
             select(Batch)
-            .options(
-                selectinload(Batch.product),
-                selectinload(Batch.manufacturing_line),
-                selectinload(Batch.packaging_line),
-                selectinload(Batch.material_lots).selectinload(MaterialLot.supplier),
-                selectinload(Batch.packaging_material_lots).selectinload(PackagingMaterialLot.supplier),
-                selectinload(Batch.equipment_records),
-                selectinload(Batch.deviations).selectinload(Deviation.capas),
-                selectinload(Batch.distribution_records),
-                selectinload(Batch.warehouse_inventory),
-            )
-            .where(Batch.batch_number == batch_number)
+            .options(*self._detail_options())
+            .where(Batch.batch_number == batch_number.strip().upper())
         )
         return self.db.scalars(statement).first()
+
+    def list_by_batch_suffix(self, suffix: str) -> list[Batch]:
+        statement = (
+            select(Batch)
+            .options(*self._detail_options())
+            .where(Batch.batch_number.like(f"%{suffix}"))
+            .order_by(Batch.batch_number.asc())
+        )
+        return list(self.db.scalars(statement).unique().all())
 
     def list(self, pagination: Pagination | None = None) -> list[Batch]:
         statement = select(Batch).order_by(Batch.batch_number.asc())

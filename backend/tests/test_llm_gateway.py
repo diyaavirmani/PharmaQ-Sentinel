@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from openai import APIConnectionError, APITimeoutError, AuthenticationError, RateLimitError
 from pydantic import BaseModel, Field, ValidationError
 
+from app.agents.complaint.schemas import DocumentComplaintExtraction
 from app.core.config import Settings, get_settings
 from app.main import create_app
 from app.services.llm import LLMRequestContext, OpenAIModelGateway
@@ -184,6 +185,28 @@ def test_free_form_schema_uses_local_json_validation_fallback() -> None:
     assert "Provider-enforced structured output unavailable; used local JSON validation" in result.warnings
     assert result.usage.total_tokens == 21
 
+def test_document_extraction_schema_uses_local_json_validation_fallback() -> None:
+    output = DocumentComplaintExtraction(
+        document_type="PDF",
+        extracted_fields={},
+        evidence_by_field=[],
+        extraction_confidence=0.8,
+        concise_summary="No supported fields were present in the demo text.",
+    )
+    responses = FakeResponsesResource(create_results=[FakeResponse(output_text=output.model_dump_json())])
+
+    result = gateway_with_responses(responses).generate_structured(
+        system_instructions="Return structured output.",
+        user_input="Use safe demo input.",
+        response_schema=DocumentComplaintExtraction,
+        request_context=request_context(tool_name="EXTRACT_DOCUMENT"),
+    )
+
+    assert responses.parse_calls == []
+    assert len(responses.create_calls) == 1
+    assert "JSON Schema" in str(responses.create_calls[0]["instructions"])
+    assert result.parsed_output.document_type == "PDF"
+    assert "Provider-enforced structured output unavailable; used local JSON validation" in result.warnings
 
 def test_pydantic_schema_validation_rejects_unknown_enum_and_numeric_range() -> None:
     with pytest.raises(LLMStructuredOutputError):

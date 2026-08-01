@@ -18,7 +18,7 @@ from app.models import (
 )
 from app.repositories.batch_impact import BatchImpactRunRepository
 from app.repositories.complaint_drafts import ComplaintDraftRepository
-from app.repositories.reference import BatchRepository
+from app.services.batch_impact.batch_resolution import resolve_reference_batch
 from app.services.batch_impact.impact_score import overall_priority
 from app.services.batch_impact.language_rules import (
     safe_connection_limitation,
@@ -158,9 +158,10 @@ def build_batch_impact_analysis(
     if not draft.batch_lot_number:
         raise PharmaQSentinelError("Draft must include a batch number before Batch Intelligence can run.", 409)
 
-    primary_batch = BatchRepository(db).get_by_batch_number(draft.batch_lot_number)
-    if primary_batch is None:
+    batch_resolution = resolve_reference_batch(db, draft)
+    if batch_resolution is None:
         raise PharmaQSentinelError(f"Batch not found in reference records: {draft.batch_lot_number}", 404)
+    primary_batch = batch_resolution.batch
 
     product_batches = _load_product_batches(db, primary_batch.product_id)
     historical_complaints = _load_historical_complaints(db, primary_batch.product_id)
@@ -185,6 +186,8 @@ def build_batch_impact_analysis(
             metadata={
                 "draft_id": draft.id,
                 "batch_lot_number": draft.batch_lot_number,
+                "reference_batch_number": primary_batch.batch_number,
+                "reference_batch_exact_match": batch_resolution.exact_match,
                 "demo_context": True,
             },
             position_hint="origin",
@@ -224,7 +227,9 @@ def build_batch_impact_analysis(
             primary_batch_node_id,
             "Complaint involves batch",
             [draft.id, primary_batch.id],
-            "The draft batch number matches this reference batch.",
+            "The draft batch number matches this reference batch."
+            if batch_resolution.exact_match
+            else "The draft batch number was resolved to a same-product seeded demo reference batch.",
         ),
     )
     _add_edge(
@@ -686,6 +691,8 @@ def build_batch_impact_analysis(
         "Relationships indicate records to assess; they do not prove causation or final quality impact.",
         "Distribution and inventory quantities are demo values that require authorised verification before action.",
     ]
+    if batch_resolution.limitation:
+        limitations.insert(0, batch_resolution.limitation)
     summary = BatchImpactSummary(
         primary_batch=primary_batch.batch_number,
         related_batches=[batch.batch_number for batch in related_batches],
@@ -736,6 +743,8 @@ def build_batch_impact_analysis(
         input_snapshot={
             "draft_id": draft.id,
             "batch_lot_number": draft.batch_lot_number,
+            "reference_batch_number": primary_batch.batch_number,
+            "reference_batch_exact_match": batch_resolution.exact_match,
             "product_name": draft.product_name,
             "complaint_type": draft.complaint_type,
         },

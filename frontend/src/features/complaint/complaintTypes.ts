@@ -83,6 +83,7 @@ export interface ComplaintAttachmentUploadResponse {
   duplicate: boolean;
   changed_fields: string[];
   created_at: string;
+  draft?: ComplaintDraftResponse | null;
 }
 
 export interface ComplaintAttachmentStatusResponse {

@@ -195,6 +195,10 @@ export const complaintSlice = createSlice({
         state.extractionStage = stageFromAttachmentStage(action.payload.current_stage, action.payload.status);
         state.extractionProgress = action.payload.progress_percentage;
         state.recentlyUpdatedFields = updatedFieldsFromServerFields(action.payload.changed_fields);
+        if (action.payload.draft) {
+          state.activeDraftId = action.payload.draft.id;
+          state.complaintDraft = action.payload.draft;
+        }
         state.draftSuccessMessage =
           action.payload.status === "COMPLETE"
             ? "Document extraction completed."

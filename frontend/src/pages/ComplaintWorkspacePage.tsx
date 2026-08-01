@@ -303,7 +303,7 @@ export function ComplaintWorkspacePage() {
         onViewFieldEvidence={(fieldName, label) => setSelectedEvidence({ fieldName, label })}
         onCloseEvidenceDrawer={() => setSelectedEvidence(null)}
         timeline={timelineQuery.data?.items ?? []}
-        activeDraftId={activeDraftId}
+        activeDraftId={visualState ? "visual-draft-id" : activeDraftId}
         isIntelligenceDockExpanded={complaintState.isIntelligenceDockExpanded}
         activeIntelligenceTab={complaintState.activeIntelligenceTab}
         duplicateAnalysis={duplicateAnalysis}

@@ -12,7 +12,9 @@ export type BatchImpactNodeType =
   | "capa"
   | "historical_complaint"
   | "distribution_location"
-  | "warehouse_inventory";
+  | "warehouse_inventory"
+  | "quality_signal"
+  | "recommended_assessment";
 
 export interface BatchImpactNode {
   id: string;

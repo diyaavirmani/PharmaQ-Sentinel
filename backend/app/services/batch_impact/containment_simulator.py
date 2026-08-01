@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.exceptions import PharmaQSentinelError
 from app.models import Batch
 from app.repositories.complaint_drafts import ComplaintDraftRepository
-from app.repositories.reference import BatchRepository
+from app.services.batch_impact.batch_resolution import resolve_reference_batch
 from app.services.batch_impact.graph_builder import _load_product_batches, decimal_text
 from app.services.batch_impact.language_rules import (
     safe_simulation_limitation,
@@ -36,9 +36,10 @@ def simulate_containment_scope(
     if not draft.batch_lot_number:
         raise PharmaQSentinelError("Draft must include a batch number before containment simulation can run.", 409)
 
-    primary_batch = BatchRepository(db).get_by_batch_number(draft.batch_lot_number)
-    if primary_batch is None:
+    batch_resolution = resolve_reference_batch(db, draft)
+    if batch_resolution is None:
         raise PharmaQSentinelError(f"Batch not found in reference records: {draft.batch_lot_number}", 404)
+    primary_batch = batch_resolution.batch
 
     product_batches = _load_product_batches(db, primary_batch.product_id)
     reasons_by_batch: dict[str, list[str]] = {}
@@ -122,6 +123,7 @@ def simulate_containment_scope(
             "Scope may include assessment of available warehouse inventory and distributed demo markets for included batches."
         ),
         limitations=[
+            *([batch_resolution.limitation] if batch_resolution.limitation else []),
             safe_simulation_limitation(),
             "The scope is based on available seeded reference records only.",
             "A qualified reviewer must decide any actual containment, hold, recall, or communication action.",

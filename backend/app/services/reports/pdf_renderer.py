@@ -37,6 +37,15 @@ def _pdf_safe_text(value: Any) -> str:
     return "".join(safe_chars).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _brief_blocks(rows: list[tuple[str, Any]], styles: dict[str, ParagraphStyle]) -> list[Any]:
+    flowables: list[Any] = []
+    for label, value in rows:
+        flowables.append(Paragraph(_pdf_safe_text(label), styles["CellLabel"]))
+        flowables.append(Paragraph(_pdf_safe_text(value), styles["Cell"]))
+        flowables.append(Spacer(1, 3))
+    return flowables
+
+
 def _brief_table(rows: list[tuple[str, Any]], styles: dict[str, ParagraphStyle]) -> Table:
     table_data = [
         [Paragraph(_pdf_safe_text(label), styles["CellLabel"]), Paragraph(_pdf_safe_text(value), styles["Cell"])]
@@ -57,6 +66,18 @@ def _brief_table(rows: list[tuple[str, Any]], styles: dict[str, ParagraphStyle])
         )
     )
     return table
+
+
+def _row_blocks(rows: list[dict[str, Any]], styles: dict[str, ParagraphStyle]) -> list[Any]:
+    keys = sorted({key for row in rows for key in row})[:6]
+    flowables: list[Any] = []
+    for index, row in enumerate(rows[:20], start=1):
+        flowables.append(Paragraph(_pdf_safe_text(f"Record {index}"), styles["RowTitle"]))
+        for key in keys:
+            flowables.append(Paragraph(_pdf_safe_text(key.replace("_", " ").title()), styles["CellLabel"]))
+            flowables.append(Paragraph(_pdf_safe_text(row.get(key)), styles["Cell"]))
+        flowables.append(Spacer(1, 5))
+    return flowables
 
 
 def _rows_table(rows: list[dict[str, Any]], styles: dict[str, ParagraphStyle]) -> Table:
@@ -107,10 +128,11 @@ def render_complaint_brief_pdf(brief: ComplaintBrief) -> bytes:
     styles = {
         "Title": ParagraphStyle("BriefTitle", parent=sample_styles["Title"], fontName="Helvetica-Bold", fontSize=18, leading=22, spaceAfter=8),
         "Heading": ParagraphStyle("BriefHeading", parent=sample_styles["Heading2"], fontName="Helvetica-Bold", fontSize=12, leading=15, spaceBefore=10, spaceAfter=6),
-        "Body": ParagraphStyle("BriefBody", parent=sample_styles["BodyText"], fontName="Helvetica", fontSize=8.5, leading=11),
-        "Disclaimer": ParagraphStyle("BriefDisclaimer", parent=sample_styles["BodyText"], fontName="Helvetica-Bold", fontSize=8.5, leading=11, backColor=colors.HexColor("#FFF7ED"), borderColor=colors.HexColor("#F59E0B"), borderWidth=0.5, borderPadding=6),
-        "Cell": ParagraphStyle("BriefCell", parent=sample_styles["BodyText"], fontName="Helvetica", fontSize=7.2, leading=9),
-        "CellLabel": ParagraphStyle("BriefCellLabel", parent=sample_styles["BodyText"], fontName="Helvetica-Bold", fontSize=7.2, leading=9),
+        "Body": ParagraphStyle("BriefBody", parent=sample_styles["BodyText"], fontName="Helvetica", fontSize=8.5, leading=11, splitLongWords=1, wordWrap="CJK"),
+        "Disclaimer": ParagraphStyle("BriefDisclaimer", parent=sample_styles["BodyText"], fontName="Helvetica-Bold", fontSize=8.5, leading=11, backColor=colors.HexColor("#FFF7ED"), borderColor=colors.HexColor("#F59E0B"), borderWidth=0.5, borderPadding=6, splitLongWords=1, wordWrap="CJK"),
+        "Cell": ParagraphStyle("BriefCell", parent=sample_styles["BodyText"], fontName="Helvetica", fontSize=7.2, leading=9, splitLongWords=1, wordWrap="CJK"),
+        "CellLabel": ParagraphStyle("BriefCellLabel", parent=sample_styles["BodyText"], fontName="Helvetica-Bold", fontSize=7.2, leading=9, splitLongWords=1, wordWrap="CJK"),
+        "RowTitle": ParagraphStyle("BriefRowTitle", parent=sample_styles["BodyText"], fontName="Helvetica-Bold", fontSize=8, leading=10, spaceBefore=3, textColor=colors.HexColor("#4C1D95")),
     }
     story = [
         Paragraph(_pdf_safe_text(brief.title), styles["Title"]),
@@ -125,10 +147,10 @@ def render_complaint_brief_pdf(brief: ComplaintBrief) -> bytes:
             story.append(PageBreak())
         story.append(Paragraph(_pdf_safe_text(section.title), styles["Heading"]))
         if section.fields:
-            story.append(_brief_table([(field.label, field.value) for field in section.fields], styles))
+            story.extend(_brief_blocks([(field.label, field.value) for field in section.fields], styles))
             story.append(Spacer(1, 5))
         if section.rows:
-            story.append(_rows_table(section.rows, styles))
+            story.extend(_row_blocks(section.rows, styles))
             story.append(Spacer(1, 5))
         for note in section.notes:
             story.append(Paragraph(_pdf_safe_text(f"- {note}"), styles["Body"]))

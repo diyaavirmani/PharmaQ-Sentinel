@@ -159,8 +159,6 @@ export const complaintApi = createApi({
         };
       },
       invalidatesTags: (_result, _error, { draftId }) => [
-        { type: "ComplaintDraft", id: draftId },
-        { type: "ComplaintDraft", id: "ACTIVE" },
         { type: "ComplaintMessage", id: draftId },
         { type: "ComplaintEvidence", id: draftId },
         { type: "ComplaintTimeline", id: draftId }

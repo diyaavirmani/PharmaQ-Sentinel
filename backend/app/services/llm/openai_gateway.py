@@ -407,7 +407,8 @@ class OpenAIModelGateway(BaseLLMGateway):
         return actual_model if isinstance(actual_model, str) and actual_model else requested_model
 
     def _requires_local_json_validation(self, response_schema: type[BaseModel]) -> bool:
-        return _contains_untyped_json_schema_node(response_schema.model_json_schema())
+        schema = response_schema.model_json_schema()
+        return _contains_untyped_json_schema_node(schema) or _contains_schema_valued_additional_properties(schema)
 
     def _json_text_instructions(self, instructions: str, response_schema: type[BaseModel]) -> str:
         return (
@@ -496,3 +497,17 @@ def _contains_untyped_json_schema_node(schema_node: object) -> bool:
         return True
 
     return any(_contains_untyped_json_schema_node(value) for value in schema_node.values())
+
+
+def _contains_schema_valued_additional_properties(schema_node: object) -> bool:
+    if isinstance(schema_node, list):
+        return any(_contains_schema_valued_additional_properties(item) for item in schema_node)
+
+    if not isinstance(schema_node, dict):
+        return False
+
+    additional_properties = schema_node.get("additionalProperties")
+    if additional_properties is True or isinstance(additional_properties, dict):
+        return True
+
+    return any(_contains_schema_valued_additional_properties(value) for value in schema_node.values())

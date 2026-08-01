@@ -206,6 +206,17 @@ const batchImpactResponse: BatchImpactResponse = {
       position_hint: "origin"
     },
     {
+      id: "product:amox",
+      type: "product",
+      label: "Amoxicillin Capsules 500 mg",
+      subtitle: "AMOX-CAP-500",
+      status: "DEMONSTRATION_ACTIVE",
+      severity: null,
+      evidence_record_id: "product-amox",
+      metadata: { demo_record: true },
+      position_hint: "product"
+    },
+    {
       id: "batch:primary",
       type: "batch",
       label: "BMX240602",
@@ -217,6 +228,50 @@ const batchImpactResponse: BatchImpactResponse = {
       position_hint: "primary"
     },
     {
+      id: "batch:603",
+      type: "batch",
+      label: "BMX240603",
+      subtitle: "Related product batch",
+      status: "RELEASED_DEMO",
+      severity: null,
+      evidence_record_id: "batch-603",
+      metadata: { demo_record: true },
+      position_hint: "related_batch"
+    },
+    {
+      id: "material:api",
+      type: "material_lot",
+      label: "AMX-API-L2405",
+      subtitle: "Amoxicillin API",
+      status: "RELEASED",
+      severity: null,
+      evidence_record_id: "material-api",
+      metadata: { supplier: "Demo API Supply Co." },
+      position_hint: "material"
+    },
+    {
+      id: "packaging:foil",
+      type: "packaging_material_lot",
+      label: "ALU-BLISTER-L2406",
+      subtitle: "Alu-PVC Blister Foil",
+      status: "RELEASED",
+      severity: null,
+      evidence_record_id: "packaging-foil",
+      metadata: { supplier: "Demo Pack Materials Pvt. Ltd." },
+      position_hint: "packaging"
+    },
+    {
+      id: "equipment:sealer",
+      type: "equipment",
+      label: "EQ-PL04-SEALER",
+      subtitle: "PL-04 Blister Sealer",
+      status: "QUALIFIED",
+      severity: null,
+      evidence_record_id: "equipment-sealer",
+      metadata: { equipment_type: "BLISTER_SEALER" },
+      position_hint: "equipment"
+    },
+    {
       id: "deviation:seal",
       type: "deviation",
       label: "DEV-2026-023",
@@ -226,6 +281,39 @@ const batchImpactResponse: BatchImpactResponse = {
       evidence_record_id: "dev-seal",
       metadata: { opened_at: "2026-07-12T10:00:00Z" },
       position_hint: "quality"
+    },
+    {
+      id: "capa:seal",
+      type: "capa",
+      label: "CAPA-2026-014",
+      subtitle: "Review PL-04 controls",
+      status: "IN_PROGRESS_DEMO",
+      severity: null,
+      evidence_record_id: "capa-seal",
+      metadata: { effectiveness_status: "PENDING_DEMO" },
+      position_hint: "quality"
+    },
+    {
+      id: "distribution:delhi",
+      type: "distribution_location",
+      label: "Delhi",
+      subtitle: "Delhi Demo Hospital",
+      status: "SHIPPED_DEMO",
+      severity: null,
+      evidence_record_id: "dist-delhi",
+      metadata: { quantity_distributed: "18000.000" },
+      position_hint: "distribution"
+    },
+    {
+      id: "inventory:central",
+      type: "warehouse_inventory",
+      label: "Central Demo Warehouse",
+      subtitle: "51000.000 available",
+      status: "INTERNAL_INVENTORY",
+      severity: null,
+      evidence_record_id: "inventory-central",
+      metadata: { quantity_available: "51000.000" },
+      position_hint: "inventory"
     }
   ],
   edges: [
@@ -241,6 +329,17 @@ const batchImpactResponse: BatchImpactResponse = {
       confidence: "0.9000"
     },
     {
+      id: "PRODUCT_HAS_BATCH:product:amox->batch:primary",
+      source: "product:amox",
+      target: "batch:primary",
+      type: "PRODUCT_HAS_BATCH",
+      relationship_label: "Product has batch",
+      source_record_ids: ["product-amox", "batch-primary"],
+      why_connected: "The reference batch is registered under this product.",
+      limitation: "Connection is based on seeded records and does not establish causation or final quality impact.",
+      confidence: "0.9000"
+    },
+    {
       id: "BATCH_HAS_DEVIATION:batch:primary->deviation:seal",
       source: "batch:primary",
       target: "deviation:seal",
@@ -250,6 +349,17 @@ const batchImpactResponse: BatchImpactResponse = {
       why_connected: "The deviation record is linked to this batch.",
       limitation: "Connection is based on seeded records and does not establish causation or final quality impact.",
       confidence: "0.9000"
+    },
+    {
+      id: "DEVIATION_LINKED_TO_CAPA:deviation:seal->capa:seal",
+      source: "deviation:seal",
+      target: "capa:seal",
+      type: "DEVIATION_LINKED_TO_CAPA",
+      relationship_label: "Linked CAPA",
+      source_record_ids: ["dev-seal", "capa-seal"],
+      why_connected: "The CAPA record references this deviation.",
+      limitation: "Connection is based on seeded records and does not establish causation or final quality impact.",
+      confidence: "0.8600"
     }
   ],
   signals: [
@@ -258,9 +368,69 @@ const batchImpactResponse: BatchImpactResponse = {
       category: "quality_event",
       level: "HIGH",
       explanation: "A linked open demo deviation may be relevant and should be investigated by QA.",
-      evidence_record_ids: ["dev-seal"],
+      evidence_record_ids: ["dev-seal", "capa-seal"],
       confidence: "0.8800",
-      recommended_assessment: "Review the deviation record, batch record timing, and any linked CAPA status.",
+      recommended_assessment: "Review deviation timing and linked CAPA status.",
+      limitation: "Connection is based on seeded records and does not establish causation or final quality impact."
+    },
+    {
+      name: "Shared packaging material lot",
+      category: "packaging",
+      level: "ELEVATED",
+      explanation: "Related batches share the blister packaging lot with the complaint batch.",
+      evidence_record_ids: ["packaging-foil"],
+      confidence: "0.9000",
+      recommended_assessment: "Assess packaging lot release and retain observations.",
+      limitation: "Connection is based on seeded records and does not establish causation or final quality impact."
+    },
+    {
+      name: "Related product batches",
+      category: "related_batch",
+      level: "WATCH",
+      explanation: "Two related batches are in the same seeded product context.",
+      evidence_record_ids: ["batch-603"],
+      confidence: "0.7600",
+      recommended_assessment: "Compare retain samples and complaint history.",
+      limitation: "Connection is based on seeded records and does not establish causation or final quality impact."
+    },
+    {
+      name: "Shared equipment history",
+      category: "equipment",
+      level: "WATCH",
+      explanation: "Packaging equipment appears in the connected seeded batch records.",
+      evidence_record_ids: ["equipment-sealer"],
+      confidence: "0.8000",
+      recommended_assessment: "Review equipment checks around the packaging window.",
+      limitation: "Connection is based on seeded records and does not establish causation or final quality impact."
+    },
+    {
+      name: "Distribution exposure exists",
+      category: "distribution",
+      level: "INFO",
+      explanation: "Demo distribution records exist for markets requiring assessment.",
+      evidence_record_ids: ["dist-delhi"],
+      confidence: "0.8400",
+      recommended_assessment: "Confirm shipment and market assessment scope.",
+      limitation: "Connection is based on seeded records and does not establish causation or final quality impact."
+    },
+    {
+      name: "Remaining warehouse inventory",
+      category: "inventory",
+      level: "INFO",
+      explanation: "Remaining demo inventory is available for possible QA assessment.",
+      evidence_record_ids: ["inventory-central"],
+      confidence: "0.8300",
+      recommended_assessment: "Verify inventory status before operational action.",
+      limitation: "Connection is based on seeded records and does not establish causation or final quality impact."
+    },
+    {
+      name: "Supplier context available",
+      category: "supplier",
+      level: "INFO",
+      explanation: "Supplier records are linked through material and packaging lots.",
+      evidence_record_ids: ["material-api", "packaging-foil"],
+      confidence: "0.7900",
+      recommended_assessment: "Review supplier quality context only if material evidence supports it.",
       limitation: "Connection is based on seeded records and does not establish causation or final quality impact."
     }
   ],
@@ -281,12 +451,30 @@ const batchImpactResponse: BatchImpactResponse = {
   recommended_assessments: [
     {
       title: "Review primary batch retain samples",
-      rationale: "The complaint batch has related demo records to assess.",
+      rationale: "The complaint batch has related demo distribution, inventory, and complaint-history records to assess.",
       evidence_record_ids: ["batch-primary"],
+      limitation: "Connection is based on seeded records and does not establish causation or final quality impact."
+    },
+    {
+      title: "Assess the shared packaging-material lot",
+      rationale: "Related batches share packaging material with the complaint batch in the demo records.",
+      evidence_record_ids: ["packaging-foil"],
+      limitation: "Connection is based on seeded records and does not establish causation or final quality impact."
+    },
+    {
+      title: "Review PL-04 deviation and CAPA status",
+      rationale: "An open packaging-line deviation and linked CAPA may be relevant to the complaint review.",
+      evidence_record_ids: ["dev-seal", "capa-seal"],
+      limitation: "Connection is based on seeded records and does not establish causation or final quality impact."
+    },
+    {
+      title: "Confirm distributed-market assessment scope",
+      rationale: "Demo distribution records identify markets for assessment planning.",
+      evidence_record_ids: ["dist-delhi"],
       limitation: "Connection is based on seeded records and does not establish causation or final quality impact."
     }
   ],
-  limitations: ["Seeded reference data is fictional demonstration data."]
+  limitations: ["Connected records indicate assessment scope; they do not establish final quality impact or root cause.", "Seeded reference data is fictional demonstration data."]
 };
 
 const qualityWarRoomRun = {
@@ -548,12 +736,14 @@ function mockComplaintFetch(handler?: (request: { url: string; method: string })
 
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = requestParts(input, init);
-    if (!request.url.endsWith("/messages") && handler) {
-      return handler(request);
-    }
-
     if (request.url.endsWith("/messages") && request.method === "GET") {
       return jsonResponse({ messages: messageStore, limit: 50, offset: 0, next_offset: null });
+    }
+    if (request.url.endsWith("/messages") && request.method === "POST" && handler) {
+      return handler(request);
+    }
+    if (!request.url.endsWith("/messages") && handler) {
+      return handler(request);
     }
     if (request.url.endsWith("/messages") && request.method === "POST") {
       messageStore = persistedMessages;
@@ -1061,7 +1251,8 @@ describe("App", () => {
           current_stage: "COMPLETE",
           duplicate: false,
           changed_fields: ["product_name", "batch_lot_number"],
-          created_at: "2026-07-30T00:00:00Z"
+          created_at: "2026-07-30T00:00:00Z",
+          draft: populatedDraft
         });
       }
       if (request.url.endsWith("/complaint-drafts") && request.method === "POST") {
@@ -1078,7 +1269,7 @@ describe("App", () => {
         });
       }
       if (request.url.includes("/complaint-drafts/draft-empty")) {
-        return jsonResponse(uploaded ? populatedDraft : emptyDraft);
+        return jsonResponse(emptyDraft);
       }
       return jsonResponse({ detail: "Not found" }, 404);
     });
@@ -1224,7 +1415,7 @@ describe("App", () => {
     await user.click(await screen.findByRole("button", { name: "View evidence for Product Name" }));
 
     expect(await screen.findByRole("dialog", { name: "Evidence: Product Name" })).toBeInTheDocument();
-    expect(screen.getAllByText("Apollo Pharmacy reported Amoxicillin Capsules 500 mg.").length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Apollo Pharmacy reported Amoxicillin Capsules 500 mg.")).length).toBeGreaterThan(0);
     expect(screen.getByTestId("complaint-workspace").children).toHaveLength(2);
     expect(document.querySelector(".overlay-backdrop")).toBeInTheDocument();
   });
@@ -1335,7 +1526,7 @@ describe("App", () => {
     expect(await screen.findByText("Complaint summary copied.")).toBeInTheDocument();
   });
 
-  test("batch impact graph appears only in Batch Intelligence dock tab", async () => {
+  test("batch intelligence overview is default and summarizes review priorities", async () => {
     window.sessionStorage.setItem("pharmaq_active_draft_id", "draft-risk");
     mockComplaintFetch((request) => {
       if (request.url.endsWith("/batch-impact") && request.method === "POST") {
@@ -1366,10 +1557,30 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Quality Intelligence" }));
     await user.click(screen.getByRole("button", { name: "Run Analysis" }));
 
-    expect(await screen.findByTestId("batch-impact-graph")).toBeInTheDocument();
-    expect(screen.getByTestId("batch-impact-metrics")).toHaveTextContent("BMX240602");
-    expect(screen.getByText("Open deviation on linked line or equipment")).toBeInTheDocument();
+    expect(await screen.findByTestId("batch-impact-overview")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByTestId("batch-impact-graph")).not.toBeInTheDocument();
+    expect(screen.getByText("Primary batch: BMX240602")).toBeInTheDocument();
+    expect(screen.getByText("Review priority: HIGH")).toBeInTheDocument();
+    expect(screen.getByTestId("batch-impact-metrics")).toHaveTextContent("Related Batches2");
+    expect(screen.getByTestId("batch-impact-metrics")).toHaveTextContent("Distributed49,500 units");
+    expect(screen.getByTestId("batch-impact-metrics")).toHaveTextContent("Remaining Inventory51,000 units");
+    const reviewTable = screen.getByRole("table");
+    const highFinding = within(reviewTable).getByText("Open deviation on linked line or equipment");
+    const elevatedFinding = within(reviewTable).getByText("Shared packaging material lot");
+    expect(highFinding.compareDocumentPosition(elevatedFinding)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(screen.queryByText("Supplier context available")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Show all records" }));
+    expect(screen.getAllByText("Supplier context available")).toHaveLength(2);
+    expect(screen.getAllByText("Connected records indicate assessment scope; they do not establish final quality impact or root cause.")).toHaveLength(2);
     expect(screen.getByTestId("complaint-workspace").children).toHaveLength(2);
+
+    await user.click(screen.getByRole("tab", { name: "Relationship Map" }));
+    expect(await screen.findByTestId("batch-impact-graph")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Summary View" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getAllByText("Quality Events").length).toBeGreaterThanOrEqual(1);
+    await user.click(screen.getByRole("button", { name: "All Records" }));
+    expect(screen.getByText("DEV-2026-023")).toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "Evidence & Audit" }));
 
@@ -1507,6 +1718,8 @@ describe("App", () => {
     await screen.findByDisplayValue("BMX240602");
     await user.click(screen.getByRole("button", { name: "Quality Intelligence" }));
     await user.click(screen.getByRole("button", { name: "Run Analysis" }));
+    await user.click(await screen.findByRole("tab", { name: "Relationship Map" }));
+    await user.click(screen.getByRole("button", { name: "All Records" }));
     const graph = await screen.findByTestId("batch-impact-graph");
     await user.click(within(graph).getByText("DEV-2026-023"));
 
@@ -1514,6 +1727,74 @@ describe("App", () => {
     expect(screen.getByTestId("batch-node-detail-drawer")).toHaveTextContent("OPEN_DEMO");
     expect(document.querySelector(".overlay-backdrop")).toBeInTheDocument();
     expect(screen.getByTestId("complaint-workspace").children).toHaveLength(2);
+  });
+
+  test("batch intelligence details tab keeps secondary evidence collapsed", async () => {
+    window.sessionStorage.setItem("pharmaq_active_draft_id", "draft-risk");
+    mockComplaintFetch((request) => {
+      if (request.url.endsWith("/batch-impact") && request.method === "POST") {
+        return jsonResponse(batchImpactResponse);
+      }
+      if (request.url.includes("/status")) {
+        return jsonResponse({
+          id: "draft-risk",
+          status: "DRAFT",
+          updated_at: riskDraft.updated_at,
+          is_locked: false,
+          is_committed: false,
+          is_extraction_active: false
+        });
+      }
+      return jsonResponse(riskDraft);
+    });
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByDisplayValue("BMX240602");
+    await user.click(screen.getByRole("button", { name: "Quality Intelligence" }));
+    await user.click(screen.getByRole("button", { name: "Run Analysis" }));
+    await user.click(await screen.findByRole("tab", { name: "Details & Limitations" }));
+
+    const details = await screen.findByTestId("batch-impact-details-view");
+    expect(within(details).getByText("Full Quality Signals")).toBeInTheDocument();
+    expect(within(details).getByText("Data Limitations")).toBeInTheDocument();
+    const qualitySignals = within(details).getByText("Full Quality Signals").closest("details");
+    expect(qualitySignals).not.toHaveAttribute("open");
+    await user.click(within(details).getByText("Full Quality Signals"));
+    expect(qualitySignals).toHaveAttribute("open");
+    expect(within(details).getByText("Supplier context available")).toBeInTheDocument();
+  });
+
+  test("relationship map edge selection explains why records are connected", async () => {
+    window.sessionStorage.setItem("pharmaq_active_draft_id", "draft-risk");
+    mockComplaintFetch((request) => {
+      if (request.url.endsWith("/batch-impact") && request.method === "POST") {
+        return jsonResponse(batchImpactResponse);
+      }
+      if (request.url.includes("/status")) {
+        return jsonResponse({
+          id: "draft-risk",
+          status: "DRAFT",
+          updated_at: riskDraft.updated_at,
+          is_locked: false,
+          is_committed: false,
+          is_extraction_active: false
+        });
+      }
+      return jsonResponse(riskDraft);
+    });
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByDisplayValue("BMX240602");
+    await user.click(screen.getByRole("button", { name: "Quality Intelligence" }));
+    await user.click(screen.getByRole("button", { name: "Run Analysis" }));
+    await user.click(await screen.findByRole("tab", { name: "Relationship Map" }));
+    await user.click(screen.getByRole("button", { name: "All Records" }));
+    await user.click(screen.getByRole("button", { name: "Has deviation" }));
+
+    expect(await screen.findByTestId("batch-impact-edge-detail")).toHaveTextContent("Why is this connected?");
+    expect(screen.getByTestId("batch-impact-edge-detail")).toHaveTextContent("Confidence");
   });
 
   test("containment simulator opens from Batch Intelligence and stays simulation-only", async () => {

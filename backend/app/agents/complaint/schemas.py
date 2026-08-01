@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -8,6 +8,14 @@ from app.agents.complaint.constants import ComplaintAssistantIntent
 from app.models.enums import Priority, ProductType, Severity
 from app.schemas.common import UTCDateTime
 from app.schemas.complaints import ComplaintDraftResponse
+
+type ExtractionScalarValue = str | int | float | bool
+type ExtractionFieldValue = (
+    ExtractionScalarValue
+    | list[ExtractionScalarValue]
+    | dict[str, ExtractionScalarValue | None]
+    | None
+)
 
 
 class ComplaintIntentClassification(BaseModel):
@@ -29,10 +37,10 @@ class ToolStubResult(BaseModel):
 class ComplaintFieldExtraction(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    value: Any | None = None
+    value: ExtractionFieldValue = None
     original_text: str | None = Field(default=None, max_length=500)
     explicitly_stated: bool = False
-    normalised: Any | None = None
+    normalised: ExtractionFieldValue = None
     confidence: float | None = Field(default=None, ge=0, le=1)
     source_excerpt: str | None = Field(default=None, max_length=1000)
     warning: str | None = Field(default=None, max_length=300)
@@ -81,7 +89,7 @@ class ComplaintEditOperation(BaseModel):
 
     field_name: str = Field(min_length=1, max_length=150)
     operation: Literal["SET", "CLEAR"]
-    new_value: Any | None = None
+    new_value: ExtractionFieldValue = None
     explicitly_requested: bool = False
     source_excerpt: str = Field(min_length=1, max_length=1000)
     confidence: float = Field(ge=0, le=1)
@@ -111,14 +119,14 @@ class DocumentFieldEvidence(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     field_name: str = Field(min_length=1, max_length=150)
-    value: Any | None = None
+    value: ExtractionFieldValue = None
     attachment_id: str = Field(min_length=1, max_length=36)
     page_number: int | None = None
     paragraph_index: int | None = None
     source_excerpt: str = Field(min_length=1, max_length=1000)
     confidence: float = Field(ge=0, le=1)
     explicitly_stated: bool = True
-    normalised: Any | None = None
+    normalised: ExtractionFieldValue = None
     extraction_method: str = Field(default="DOCUMENT_EXTRACTION", max_length=150)
 
 

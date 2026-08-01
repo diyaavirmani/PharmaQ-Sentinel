@@ -104,6 +104,7 @@ from app.services.reports import (
     render_complaint_brief_html,
     render_complaint_brief_pdf,
 )
+from app.services.reports.complaint_brief_schema import ReportSection
 from app.utilities.seed_database import seed_database
 
 pytestmark = pytest.mark.mysql
@@ -701,6 +702,29 @@ def test_inspection_brief_complete_json_html_pdf_and_security(db_session: Sessio
     assert len(pdf) > 1000
 
 
+def test_inspection_brief_pdf_handles_page_tall_row_content(db_session: Session) -> None:
+    complaint = seed_saved_complaint_with_report_context(db_session)
+    brief = build_complaint_brief(db_session, complaint_id=complaint.id)
+    brief.sections.append(
+        ReportSection(
+            title="Oversized Evidence Row Regression",
+            rows=[
+                {
+                    "confidence": "0.9200",
+                    "field_name": "detailed_description",
+                    "source_excerpt": "X" * 14000,
+                    "source_type": "PDF",
+                }
+            ],
+        )
+    )
+
+    pdf = render_complaint_brief_pdf(brief)
+
+    assert pdf.startswith(b"%PDF")
+    assert len(pdf) > 1000
+
+
 def test_inspection_brief_endpoint_formats_and_unsupported_format(db_session: Session) -> None:
     complaint = seed_saved_complaint_with_report_context(db_session)
     client = TestClient(make_app_with_session(db_session))
@@ -1027,6 +1051,9 @@ def test_attachment_upload_extracts_document_patch_evidence_and_audit(
     assert payload["status"] == "COMPLETE"
     assert payload["current_stage"] == "COMPLETE"
     assert "batch_lot_number" in payload["changed_fields"]
+    assert payload["draft"]["id"] == draft.id
+    assert payload["draft"]["batch_lot_number"] == "BMX240602"
+    assert payload["draft"]["product_name"] == "Amoxicillin Capsules"
     db_session.refresh(draft)
     assert draft.batch_lot_number == "BMX240602"
     assert draft.product_name == "Amoxicillin Capsules"
@@ -2658,6 +2685,25 @@ def test_batch_impact_missing_and_unknown_batch_handled(db_session: Session) -> 
     with pytest.raises(PharmaQSentinelError) as unknown_error:
         build_batch_impact_analysis(db_session, draft_id=unknown.id)
     assert unknown_error.value.status_code == 404
+
+
+def test_batch_impact_resolves_same_product_demo_batch_suffix(db_session: Session) -> None:
+    draft = seed_batch_impact_draft(db_session, batch_number="AMX240602")
+
+    result = build_batch_impact_analysis(db_session, draft_id=draft.id)
+
+    assert result.impact_summary.primary_batch == "BMX240602"
+    assert any("AMX240602" in limitation and "BMX240602" in limitation for limitation in result.limitations)
+
+
+def test_batch_impact_resolves_unique_demo_batch_suffix_without_product(db_session: Session) -> None:
+    draft = seed_batch_impact_draft(db_session, batch_number="AMX240602")
+    draft.product_name = None
+
+    result = build_batch_impact_analysis(db_session, draft_id=draft.id)
+
+    assert result.impact_summary.primary_batch == "BMX240602"
+    assert any("product was not provided" in limitation for limitation in result.limitations)
 
 
 def test_batch_impact_language_rejects_prohibited_causal_copy() -> None:

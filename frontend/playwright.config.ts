@@ -1,16 +1,19 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const uiTestPort = Number(process.env.PLAYWRIGHT_PORT ?? 5173);
+const baseURL = `http://127.0.0.1:${uiTestPort}`;
+
 export default defineConfig({
   testDir: "./tests/ui",
   outputDir: "./test-results/playwright",
   reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:5173",
+    baseURL,
     trace: "on-first-retry"
   },
   webServer: {
-    command: "npm run dev -- --host 127.0.0.1 --port 5173",
-    url: "http://127.0.0.1:5173",
+    command: `npm run dev -- --host 127.0.0.1 --port ${uiTestPort}`,
+    url: baseURL,
     reuseExistingServer: !process.env.CI,
     env: {
       VITE_ENABLE_WORKSPACE_TEST_STATES: "true"

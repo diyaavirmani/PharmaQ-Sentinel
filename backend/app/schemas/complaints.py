@@ -397,6 +397,7 @@ class ComplaintAttachmentUploadResponse(BaseModel):
     duplicate: bool = False
     changed_fields: list[str] = Field(default_factory=list)
     created_at: UTCDateTime
+    draft: ComplaintDraftResponse | None = None
 
 
 class ComplaintAttachmentStatusResponse(BaseModel):

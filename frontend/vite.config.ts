@@ -9,7 +9,7 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    exclude: ["node_modules", "dist", "tests/ui/**"],
+    exclude: ["node_modules", "dist", "tests/ui/**", "tests/demo/**"],
     setupFiles: ["./src/test/setup.ts"],
     globals: true
   }

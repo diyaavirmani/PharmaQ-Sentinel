@@ -20,7 +20,7 @@ function StepList({ title, steps }: { title: string; steps: PlaybookStep[] }) {
       {steps.length ? (
         <ul>
           {steps.map((step) => (
-            <li key={step.id}>
+            <li key={step.id} className="playbook-step">
               <strong>{step.title}</strong>
               <span>{step.rationale}</span>
             </li>
